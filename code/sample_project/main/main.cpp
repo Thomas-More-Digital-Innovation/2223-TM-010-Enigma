@@ -10,6 +10,7 @@
 
 esp_err_t ret;
 spi_device_handle_t spi;
+spi_device_handle_t spi2;
 
 static const char *error = "error";
 
@@ -33,6 +34,12 @@ unsigned char  gpioa_state = 0;
 unsigned char  gpioa_stateOriginal = 0;
 
 char keyboardPoints[3][3] = {{'a','b','c'}, {'d','e','f'},{'g','h','i'}};
+
+//stepper motor
+static const char *stepper = "stepper motor";
+#define STEPPER_CS GPIO_NUM_32
+#define STEPPERWRITEADDR 0x42
+#define STEPPERREADADDR 0x43
 
 //////////////////////////
 ///////FUNCTIONS/////////
@@ -75,27 +82,27 @@ void spi_write(spi_device_handle_t spi,const uint8_t addresExpander,const uint8_
 
 
 uint8_t spi_read(spi_device_handle_t spi,const uint8_t addresExpander,const uint8_t addresRegister){
-    gpio_set_level(KEYBOARD_CS,0);
-    spi_transaction_t t;
-    memset(&t, 0, sizeof(t));
+  gpio_set_level(KEYBOARD_CS,0);
+  spi_transaction_t t;
+  memset(&t, 0, sizeof(t));
 
-    uint8_t tx_data[4];
-	uint8_t rx_data[4];
+  uint8_t tx_data[4];
+  uint8_t rx_data[4];
 
-    tx_data[0] = addresExpander;
-	tx_data[1] = addresRegister;
-	tx_data[2] = 0x00;
-	tx_data[3] = 0x00;
+  tx_data[0] = addresExpander;
+  tx_data[1] = addresRegister;
+  tx_data[2] = 0x00;
+  tx_data[3] = 0x00;
 
-    t.tx_buffer = tx_data;	
-	t.rx_buffer = rx_data;
-    t.length=32;
- 
-    esp_err_t ret = spi_device_polling_transmit(spi, &t);
-    assert( ret == ESP_OK );
-    gpio_set_level(KEYBOARD_CS,1);
-	
-    return rx_data[2];	
+  t.tx_buffer = tx_data;	
+  t.rx_buffer = rx_data;
+  t.length=32;
+
+  esp_err_t ret = spi_device_polling_transmit(spi, &t);
+  assert( ret == ESP_OK );
+  gpio_set_level(KEYBOARD_CS,1);
+
+  return rx_data[2];	
 }
 
 /////keyboard///////////////////////////
@@ -129,17 +136,11 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[1][row];
     ESP_LOGI(keyboardLog, "letter %c", letter);
-  } else if (column == 6)//dit moet 4 zijn maar ioexpander geeft daar foute waarde terug dus soms 6
+  } else if (column == 4)
   {
     letter = keyboardPoints[2][row];
     ESP_LOGI(keyboardLog, "letter %c", letter);
   }
-    //1 2 (soms 4 vaker 6) 8 16 48 64 (soms 128 vaker 192);
-    //1 2 4 8 16 32 64 128 => zou het moeten zijn
-    //1 2 6 8 16 48 64 192 => is wat ik terug krijg
-    //6 =   00000110 =>rechtse 1 = fout
-    //48 =  00110000 =>rechtse 1 = fout
-    //192 = 11000000 =>rechtse 1 = fout
 }
 
 void keyboard(){
@@ -157,21 +158,63 @@ void keyboard(){
 /////ledstrip///////////////////////////
 static void set_ledstrip(int ledNumber)
 {
-    ledstrip->clear(ledstrip, 50);
-    /* If the addressable LED is enabled */
-    ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
-    ledstrip->set_pixel(ledstrip, ledNumber, 255, 255, 255);
-    /* Refresh the strip to send data */
-    ledstrip->refresh(ledstrip, 100);
+  ledstrip->clear(ledstrip, 50);
+  /* If the addressable LED is enabled */
+  ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
+  ledstrip->set_pixel(ledstrip, ledNumber, 255, 255, 255);
+  /* Refresh the strip to send data */
+  ledstrip->refresh(ledstrip, 100);
 }
 
 static void configure_ledstrip(void)
 {
-    ESP_LOGI(LEDSTRIP, "configuring the ledstrip");
-    /* initialise the led strip with rmt channel, gpio for data line and amount om leds on the strip*/
-    ledstrip = led_strip_init(CONFIG_BLINK_LED_RMT_CHANNEL, ledstrip_GPIO, 26);
-    /* Set all LED off to clear all pixels */
-    ledstrip->clear(ledstrip, 50);
+  ESP_LOGI(LEDSTRIP, "configuring the ledstrip");
+  /* initialise the led strip with rmt channel, gpio for data line and amount om leds on the strip*/
+  ledstrip = led_strip_init(CONFIG_BLINK_LED_RMT_CHANNEL, ledstrip_GPIO, 26);
+  /* Set all LED off to clear all pixels */
+  ledstrip->clear(ledstrip, 50);
+}
+/////stepperMotor///////////////////////////
+void turnMotor(int steps, int motor, int GPIOAB){
+  //motor 1 and 2 are on gpioB, 3 on gpioA
+  //motor 2 is attatched to the last 4 bits of the GPIOB => <<4
+  int step1 = (motor==1 || motor==3) ? 0b00000011 : 0b00000011<<4;
+  int step2 = (motor==1 || motor==3) ? 0b00000110 : 0b00000110<<4;
+  int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b00001100<<4;
+  int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
+
+  ESP_LOGI(stepper, "step1 %d!", step1);
+  ESP_LOGI(stepper, "step2 %d!", step2);
+  ESP_LOGI(stepper, "step3 %d!", step3);
+  ESP_LOGI(stepper, "step4 %d!", step4);
+
+  if (steps >0){
+    for (size_t i = 0; i < steps; i++)
+    {
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step1);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step2);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step3);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step4);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+  } else if (steps <0)
+  {
+    for (int j = 0; j > steps; j--)
+    {
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step4);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step3);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step2);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      spi_write(spi2,STEPPERWRITEADDR,GPIOAB,step1);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+  }
+  
 }
 
 //////////////////////////
@@ -183,54 +226,71 @@ extern "C"
 {
 	void app_main(void)
 	{
-        uint8_t dataFromPoll;
-        //de cs pin van de keyboard io expander instellen als output
-        gpio_setup(KEYBOARD_CS,GPIO_MODE_OUTPUT,1,0,0);
-		configure_ledstrip();
-		set_ledstrip(0);//makes the first led burn
+    uint8_t dataFromPoll;
+    //de cs pin van de keyboard io expander instellen als output
+    gpio_setup(KEYBOARD_CS,GPIO_MODE_OUTPUT,1,0,0);
+    configure_ledstrip();
+    set_ledstrip(0);//makes the first led burn
 
-        spi_bus_config_t buscfg = {
-            .mosi_io_num = GPIO_NUM_18,
-            .miso_io_num = GPIO_NUM_19,
-            .sclk_io_num = GPIO_NUM_5,
-            .quadwp_io_num=-1,
-            .quadhd_io_num=-1,
-            .max_transfer_sz = 32
-        };
+    spi_bus_config_t buscfg = {
+        .mosi_io_num = GPIO_NUM_18,
+        .miso_io_num = GPIO_NUM_19,
+        .sclk_io_num = GPIO_NUM_5,
+        .quadwp_io_num=-1,
+        .quadhd_io_num=-1,
+        .max_transfer_sz = 32
+    };
 
-        spi_device_interface_config_t devcfg = {
-            .mode=0,                                //SPI mode 0
-            .clock_speed_hz=10*1000*1000, //400kHz
-            .spics_io_num=KEYBOARD_CS,               //CS pin
-            .queue_size=7                         //We want to be able to queue 7 transactions at a time
-        };
+    spi_device_interface_config_t devcfg = {
+        .mode=0,                                //SPI mode 0
+        .clock_speed_hz=10*1000*1000, //400kHz
+        .spics_io_num=KEYBOARD_CS,               //CS pin
+        .queue_size=7                         //We want to be able to queue 7 transactions at a time
+    };
 
-        
-        ret = spi_bus_initialize(HSPI_HOST, &buscfg, SPI_DMA_CH_AUTO);//this initializes the spi bus
-        ESP_ERROR_CHECK(ret);//if this gives an error it wil show in the terminal
-        ESP_LOGI(error, "error code %d!", ret);//this way I get extra confirmation if the error code is 0
-        
-        ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);//this adds 1 io expander to the bus (with cs pin 21)
-        ESP_ERROR_CHECK(ret);
-        ESP_LOGI(error, "error code %d!", ret);
+    spi_device_interface_config_t devcfg2 = {
+        .mode=0,                                //SPI mode 0
+        .clock_speed_hz=10*1000*1000, //400kHz
+        .spics_io_num=STEPPER_CS,               //CS pin
+        .queue_size=7                         //We want to be able to queue 7 transactions at a time
+    };
 
-        //de B kant op output zetten
-        spi_write(spi,KEYBOARDWRITEADDR,IODIRB,0x00);
-        spi_write(spi,KEYBOARDWRITEADDR,IODIRA,0xFF);
+    ret = spi_bus_initialize(HSPI_HOST, &buscfg, SPI_DMA_CH_AUTO);//this initializes the spi bus
+    ESP_ERROR_CHECK(ret);//if this gives an error it wil show in the terminal
+    ESP_LOGI(error, "error code %d!", ret);//this way I get extra confirmation if the error code is 0
+    
+    ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);//this adds 1 io expander to the bus (with cs pin 21)
+    ESP_ERROR_CHECK(ret);
+    ESP_LOGI(error, "error code %d!", ret);
 
-        vTaskDelay(500/portTICK_PERIOD_MS);
+    ret=spi_bus_add_device(HSPI_HOST, &devcfg2, &spi2);//this adds 1 io expander to the bus (with cs pin 21)
+    ESP_ERROR_CHECK(ret);
+    ESP_LOGI(error, "error code %d!", ret);
 
-        //de B outputs zetten
-        spi_write(spi,KEYBOARDWRITEADDR,GPIOB,0b00000000);
+    //set the io expanders as in or output
+    spi_write(spi,KEYBOARDWRITEADDR,IODIRB,0x00);//all output
+    spi_write(spi,KEYBOARDWRITEADDR,IODIRA,0xFF);//all input
+    spi_write(spi2,STEPPERWRITEADDR,IODIRB,0x00);
+    spi_write(spi2,STEPPERWRITEADDR,IODIRA,0x00);
 
-        for (;;)//endless loop
-        {
-            keyboard();
-        }
-        
-        ESP_LOGI(LEDSTRIP, "start delay");
-        vTaskDelay(500000/portTICK_PERIOD_MS);
-        ESP_LOGI(LEDSTRIP, "stop delay");
+    vTaskDelay(500/portTICK_PERIOD_MS);
+
+    //set B outputs 
+    spi_write(spi,KEYBOARDWRITEADDR,GPIOB,0b00000000);
+
+    turnMotor(80,1,GPIOB);
+    turnMotor(-80,1,GPIOB);
+    turnMotor(80,2,GPIOB);
+    
+
+    // for (;;)//endless loop
+    // {
+    //   keyboard();
+    // }
+    
+    ESP_LOGI(LEDSTRIP, "start delay");
+    vTaskDelay(500000/portTICK_PERIOD_MS);
+    ESP_LOGI(LEDSTRIP, "stop delay");
 
 	}
 }

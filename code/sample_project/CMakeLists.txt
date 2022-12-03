@@ -3,6 +3,7 @@
 # The following five lines of boilerplate have to be in your project's
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.5)
-set(EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/led_strip)
+set(EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/)
+#set(EXTRA_COMPONENT_DIRS C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/components)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(main)

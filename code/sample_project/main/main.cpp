@@ -137,8 +137,6 @@ uint8_t ReadSpi(spi_device_handle_t spi,const uint8_t addresExpander,const uint8
   return rx_data[2];	
 }
 
-
-
 /////keyboard///////////////////////////
 
 int readButtonInputs(){
@@ -179,17 +177,7 @@ void getLetterFromInputs(int column, int row){
   }
 }
 
-void keyboard(){
-  
-  //Set a row high en read the collumn. the combination of row and collumn tells if button is pressend and which one
-  setButtonOutput(0b00000001);
-  getLetterFromInputs(readButtonInputs(),0);
-  setButtonOutput(0b00000010);
-  getLetterFromInputs(readButtonInputs(),1);
-  setButtonOutput(0b00000100);
-  getLetterFromInputs(readButtonInputs(),2);
-  
-}
+
 
 /////ledstrip///////////////////////////
 static void set_ledstrip(int ledNumber)
@@ -198,6 +186,18 @@ static void set_ledstrip(int ledNumber)
   /* If the addressable LED is enabled */
   ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
   ledstrip->set_pixel(ledstrip, ledNumber, 0, 255, 0);
+  /* Refresh the strip to send data */
+  ledstrip->refresh(ledstrip, 100);
+}
+
+static void set_multiple_leds(int ledNumber1, int ledNumber2, int ledNumber3)
+{
+  ledstrip->clear(ledstrip, 50);
+  /* If the addressable LED is enabled */
+  ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
+  ledstrip->set_pixel(ledstrip, ledNumber1, 16, 16, 16);
+  ledstrip->set_pixel(ledstrip, ledNumber2, 16, 16, 16);
+  ledstrip->set_pixel(ledstrip, ledNumber3, 16, 16, 16);
   /* Refresh the strip to send data */
   ledstrip->refresh(ledstrip, 100);
 }
@@ -294,7 +294,7 @@ void printRegister(int status){
   ESP_LOGI(rotary, "8: %d!", GetBit(status,1,7));
 }
 
-void ReadRotary(int RegisterA,int NrA, int NrB){
+void ReadRotary(int RegisterA,int NrA, int NrB, int motor,int GPIOAB){
   int AState = GetBit(RegisterA,1,NrA);
   int BState = GetBit(RegisterA,1,NrB);
   int ALastState;
@@ -310,9 +310,11 @@ void ReadRotary(int RegisterA,int NrA, int NrB){
 
   if (AState<ALastState){
       if(AState == 0 && BState == 1){
-          counter ++;//this should be the stepper motor turning
+          counter ++;
+          turnMotor(10,motor,GPIOAB);
       } else{
           counter --;
+          turnMotor(-10,motor,GPIOAB);
       }
       ESP_LOGI(ROTARY, "counter %d ",counter);
       ESP_LOGI(ROTARY, "a: %d, b: %d",AState,BState);
@@ -333,28 +335,6 @@ void ReadRotary(int RegisterA,int NrA, int NrB){
   
 }
 
-
-// void readRotary(){
-
-//   GpioRegisterA = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
-//   a1State = GetBit(GpioRegisterA,1,0);
-//   b1State = GetBit(GpioRegisterA,1,1);
-
-//   if (aState<aLastState){
-//       if(aState == 0 && bState == 1){
-//           counter ++;
-//       } else{
-//           counter --;
-//       }
-//       ESP_LOGI(TAG, "counter %d ",counter);
-//       ESP_LOGI(TAG, "a: %d, b: %d",aState,bState);
-//       ESP_LOGI(TAG," ");
-//   }
-//   aLastState = aState;
-//   vTaskDelay(10/portTICK_PERIOD_MS);
-// }
-
-
 //////////////////////////
 ///////MAIN/////////
 /////////////////////////
@@ -371,8 +351,8 @@ extern "C"
     gpio_setup(STEPPER_CS,GPIO_MODE_OUTPUT,1,0,0);
     gpio_setup(SWITCHBOARD1_CS,GPIO_MODE_OUTPUT,1,0,0);
     gpio_setup(SWITCHBOARD2_CS,GPIO_MODE_OUTPUT,1,0,0);
+    gpio_setup(ROTARY_CS,GPIO_MODE_OUTPUT,1,0,0);
     configure_ledstrip();
-    set_ledstrip(8);//makes the first led burn
 
     spi_bus_config_t buscfg = {
         .mosi_io_num = GPIO_NUM_18,
@@ -443,47 +423,56 @@ extern "C"
       WriteSpi(spi5,ROTARYWRITEADDR,IODIRA,0b11111111,ROTARY_CS);
       WriteSpi(spi5,ROTARYWRITEADDR,IODIRB,0b11111111,ROTARY_CS);
 
-      //this happens until the start message button is pressed
       GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
 
       A1LastState = GetBit(aLastState,1,0);
       A2LastState = GetBit(aLastState,1,2);
       A3LastState = GetBit(aLastState,1,4);
-      ReadRotary(GpioRegister5A,0,1);//this reads the first rotary encoder and turns the stepper motor if neccesary
-      ReadRotary(GpioRegister5A,2,3);//this reads the second rotary encoder and turns the stepper motor if neccesary
-      ReadRotary(GpioRegister5A,4,5);//this reads the third rotary encoder and turns the stepper motor if neccesary
 
-      GpioRegister5B = ReadSpi(spi5,ROTARYREADADDR,GPIOB,ROTARY_CS);
-      if (GetBit(GpioRegister5B,1,0))
+      
+      while (/* condition */)//condition will be while start message is not pushed
       {
-        //rotary 1 pushed
-        if (choice_rotor_left != 5)
+        //checks the buttons pushed
+        GpioRegister5B = ReadSpi(spi5,ROTARYREADADDR,GPIOB,ROTARY_CS);
+        if (GetBit(GpioRegister5B,1,0))
         {
-          choice_rotor_left +=1;
-        }else{
-          choice_rotor_left = 1;
+          //rotary 1 pushed
+          if (choice_rotor_left != 5)
+          {
+            choice_rotor_left +=1;
+          }else{
+            choice_rotor_left = 1;
+          }
+          set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
+        } else if(GetBit(GpioRegister5B,1,1)){
+          //rotary 2 pushed
+          if (choice_rotor_mid != 5)
+          {
+            choice_rotor_mid +=1;
+          }else{
+            choice_rotor_mid = 1;
+          }
+          set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
+        }else if (GetBit(GpioRegister5B,1,2)){
+          //rotary 3 pushed
+          if (choice_rotor_right != 5)
+          {
+            choice_rotor_right +=1;
+          }else{
+            choice_rotor_right = 1;
+          }
+          set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
         }
-      } else if(GetBit(GpioRegister5B,1,1)){
-        //rotary 2 pushed
-        if (choice_rotor_mid != 5)
-        {
-          choice_rotor_mid +=1;
-        }else{
-          choice_rotor_mid = 1;
-        }
-      }else if (GetBit(GpioRegister5B,1,2)){
-        //rotary 3 pushed
-        if (choice_rotor_right != 5)
-        {
-          choice_rotor_right +=1;
-        }else{
-          choice_rotor_right = 1;
-        }
+
+        //checks the turning of the rotary encoder and turns the stepper motor accordingly
+        GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
+
+        ReadRotary(GpioRegister5A,0,1,1,GPIOB);//this reads the first rotary encoder and turns the stepper motor if neccesary
+        ReadRotary(GpioRegister5A,2,3,2,GPIOB);//this reads the second rotary encoder and turns the stepper motor if neccesary
+        ReadRotary(GpioRegister5A,4,5,3,GPIOA);//this reads the third rotary encoder and turns the stepper motor if neccesary
+
       }
       
-      
-
-
 
       ////////////////////////////////////////////////////////////////////////////////
       ////////////////////////////////SWITCHBOARD READ////////////////////////////////
@@ -539,7 +528,21 @@ extern "C"
       WriteSpi(spi2,STEPPERWRITEADDR,IODIRB,0b00000000,STEPPER_CS);
 
 
-      // this happens as long as the message end button isn't pressed
+      
+      while (/* condition */)// condition is as long as the message end button isn't pressed
+      {
+        //Set a row high en read the collumn. the combination of row and collumn tells if button is pressend and which one
+        setButtonOutput(0b00000001);
+        getLetterFromInputs(readButtonInputs(),0);
+        setButtonOutput(0b00000010);
+        getLetterFromInputs(readButtonInputs(),1);
+        setButtonOutput(0b00000100);
+        getLetterFromInputs(readButtonInputs(),2);
+        //is nu voor 3x3 button matrix, moet nog vergroot worden, de letter moet nog vertaald worden en de led moet nog aan gaan
+  
+
+      }
+      
 
       ////////////////////////////////////////////////////////////////////////////////
       //////////////////////////////////SEND MESSAGE//////////////////////////////////

@@ -7,10 +7,20 @@
 #include "sdkconfig.h"
 #include "driver/spi_master.h"
 #include <string.h>
+#include <vector>
 
 unsigned short int choice_rotor_left = 1;
 unsigned short int choice_rotor_mid = 2;
 unsigned short int choice_rotor_right = 3;
+
+//regpresents what letters are attatched to te switchboard io expander registers
+int switchboard3RegA[8] = {1,2,3,4,5,6,7,8};
+int switchboard3RegB[8] = {9,10,11,12,13,14,15,16};
+int switchboard4RegA[8] = {17,18,19,20,21,22,23,24};
+int switchboard4RegB[2] = {25,26};
+
+vector<unsigned short int> switchboardA = {};
+vector<unsigned short int> switchboardB = {};
 
 esp_err_t ret;
 spi_device_handle_t spi;
@@ -253,34 +263,135 @@ void turnMotor(int steps, int motor, int GPIOAB){
   
 }
 //this function rotates a byte to the left by 1
-unsigned char rotl(unsigned char c)//https://stackoverflow.com/questions/19204750/how-do-i-perform-a-circular-rotation-of-a-byte
+unsigned char rotl(unsigned char c,int iteration)//https://stackoverflow.com/questions/19204750/how-do-i-perform-a-circular-rotation-of-a-byte
 {
-    return (c << 1) | (c >> 7);
-}
-
-void readSwitchboard(){
-  int directionIO = 0b00000000;
-  int outputIO = 0b00000001;
-  WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,directionIO,SWITCHBOARD1_CS);//dit is een probleem maar er zij nog 6 pinnen over dus kan als de onderste 2 niet gebruikt worden
-  WriteSpi(spi3,SWITCHBOARD2WRITEADDR,IODIRA,0b11111111,SWITCHBOARD2_CS);
-
-  WriteSpi(spi3,SWITCHBOARD1WRITEADDR,GPIOB,outputIO,SWITCHBOARD1_CS);
-
-  for (;;)
+  if (iteration)//if this is 0 the number stays the same, else it's rotated
   {
-    read_a = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);//hiermee gekoppeld => 1bit ernaast (verwacht 64 krijg 32, verwacht 4 krijg 2,...)
-    ESP_LOGI(switchboard,"%d",read_a);
-    // read_b = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);//hier hetzelfde //in arduino code is het wel juist
-    // ESP_LOGI(switchboard,"%d",read_b);
-    vTaskDelay(2000/portTICK_PERIOD_MS);
+    return (c << 1) | (c >> 7);
   }
-
+  
+  return c;
 }
+
 //https://www.geeksforgeeks.org/extract-k-bits-given-position-number/
 int GetBit(int number, int amountBits, int startingPos)
 {
     return (((1 << amountBits) - 1) & (number >> (startingPos - 1)));
 }
+
+int GetBitHigh(int number){
+  for (size_t i = 1; i < 9; i++)
+  {
+    if (GetBit(number,1,i))
+    {
+      return i;
+    }
+  }
+  return 0;
+  
+}
+
+int GetBitHigh(int number,int ignoreNumber){
+  for (size_t i = 1; i < 9; i++)
+  {
+    if (i!=ignoreNumber)//the ignore number is the nr of the pin that is set as a high output
+    {
+      if (GetBit(number,1,i))
+      {
+        return i;
+      }
+    }
+  }
+  return 0;
+  
+}
+
+void readSwitchboard(){
+  int allInput = 0b11111111;
+  int changingOutput = 0b11111110;
+  int outputLevel = 0b00000001;
+  int firstLetter;
+  int secondLetter;
+
+  for (size_t i = 0; i < 8 ; i++)
+  {
+    changedOutput = rotl(changingOutput,i);
+    //set only 1 as output
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRA,changedOutput,SWITCHBOARD1_CS);// one after the other the pins become an output
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
+
+    //lees elke io register
+    int reg3A = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
+    int reg3B = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);
+
+    int reg4A = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
+    int reg4B = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
+
+    int highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+    
+    int highBitMatch;
+    if(GetBitHigh(reg3A,highBitOutput)){
+      highBitMatch = GetBitHigh(reg3A,highBitOutput);//look for high input but ignore the high output
+      firstLetter = switchboard3RegA[highBitOutput-1];
+      secondLetter = switchboard3RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg3B))
+    {
+      highBitMatch = GetBitHigh(reg3B);
+      firstLetter = switchboard3RegA[highBitOutput-1];
+      secondLetter = switchboard3RegB[highBitMatch-1];
+    }else if (GetBitHigh(reg4A))
+    {
+      highBitMatch = GetBitHigh(reg4A);
+      firstLetter = switchboard3RegA[highBitOutput-1];
+      secondLetter = switchboard4RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg4B))
+    {
+      highBitMatch = GetBitHigh(reg4B);
+      firstLetter = switchboard3RegA[highBitOutput-1];
+      secondLetter = switchboard4RegB[highBitMatch-1];
+    }else{
+      highBitMatch = 0;
+    }
+
+    if (highBitMatch)
+    {
+      if (firstLetter)//check if the first or second letter are in the switchboard already, if so delete them(with their old partner) and then add them with the new partner
+      {
+        /* code */
+      }
+      
+    }
+    
+    
+    
+   
+  }
+
+  //   WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,directionIO,SWITCHBOARD1_CS);//dit is een probleem maar er zij nog 6 pinnen over dus kan als de onderste 2 niet gebruikt worden
+//   WriteSpi(spi3,SWITCHBOARD2WRITEADDR,IODIRA,0b11111111,SWITCHBOARD2_CS);
+
+//   WriteSpi(spi3,SWITCHBOARD1WRITEADDR,GPIOB,outputIO,SWITCHBOARD1_CS);
+
+//   for (;;)
+//   {
+//     read_a = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);//hiermee gekoppeld => 1bit ernaast (verwacht 64 krijg 32, verwacht 4 krijg 2,...)
+//     ESP_LOGI(switchboard,"%d",read_a);
+//     // read_b = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);//hier hetzelfde //in arduino code is het wel juist
+//     // ESP_LOGI(switchboard,"%d",read_b);
+//     vTaskDelay(2000/portTICK_PERIOD_MS);
+//   }
+}
+  
+  
+
+
+
+
+
+
+
 void printRegister(int status){
   // aState = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
   ESP_LOGI(rotary, "VOLLEDIG: %d!", status);

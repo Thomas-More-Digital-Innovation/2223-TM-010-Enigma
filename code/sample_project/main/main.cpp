@@ -91,7 +91,7 @@ static const char *ROTARY = "rotary";
 /////////////////////////
 
 /////gpio///////////////////////////
-void gpio_setup(gpio_num_t pinnumber,gpio_mode_t mode, bool on_or_off, bool pullup_en, bool pulldown_en){
+void GpioSetup(gpio_num_t pinnumber,gpio_mode_t mode, bool on_or_off, bool pullup_en, bool pulldown_en){
     gpio_pad_select_gpio(pinnumber);//GPIO_NUM_13 is gpio pin 13
     ESP_ERROR_CHECK(gpio_set_direction(pinnumber,mode));
     ESP_ERROR_CHECK(gpio_set_level(pinnumber,on_or_off));
@@ -310,29 +310,36 @@ void readSwitchboard(){
   int allInput = 0b11111111;
   int changingOutput = 0b11111110;
   int outputLevel = 0b00000001;
-  int firstLetter;
-  int secondLetter;
+  int changedOutput;
+  int firstLetter,secondLetter;
 
+  int reg3A,reg3B,reg4A,reg4B;
+  int highBitOutput,highBitMatch;
+
+  //make sure the switchboard vectors are empty before they are read
+  switchboardA.clear();
+  switchboardB.clear();
+  //spi3 with register A changes output
   for (size_t i = 0; i < 8 ; i++)
   {
+    //this function shifts the position of the 0(output) in the byte 1 to the left
     changedOutput = rotl(changingOutput,i);
-    //set only 1 as output
+    //set only 1 as output, all the rest are inputs
     WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRA,changedOutput,SWITCHBOARD1_CS);// one after the other the pins become an output
     WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);
     WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
     WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
 
-    //lees elke io register
-    int reg3A = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
-    int reg3B = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);
+    //read all the switchboard registers
+    reg3A = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
+    reg3B = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);
 
-    int reg4A = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
-    int reg4B = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
+    reg4A = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
+    reg4B = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
 
-    int highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
-    
-    int highBitMatch;
-    if(GetBitHigh(reg3A,highBitOutput)){
+    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+
+    if(GetBitHigh(reg3A,highBitOutput)){//if there wasn't a high bit somewhere this function would return 0 and the if wouln't be true
       highBitMatch = GetBitHigh(reg3A,highBitOutput);//look for high input but ignore the high output
       firstLetter = switchboard3RegA[highBitOutput-1];
       secondLetter = switchboard3RegA[highBitMatch-1];
@@ -357,52 +364,171 @@ void readSwitchboard(){
 
     if (highBitMatch)
     {
-      if (firstLetter)//check if the first or second letter are in the switchboard already, if so delete them(with their old partner) and then add them with the new partner
-      {
-        /* code */
-      }
-      
+      switchboardA.push_back(firstLetter);
+      switchboardB.push_back(secondLetter);
     }
-    
-    
-    
-   
+  }
+  //spi3 with register B changes output
+  for (size_t i = 0; i < 8 ; i++)
+  {
+    changedOutput = rotl(changingOutput,i);
+    //set only 1 as output
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRA,allInput,SWITCHBOARD1_CS);
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,changedOutput,SWITCHBOARD1_CS);// one after the other the pins become an output
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
+
+    //read all the switchboard registers
+    reg3A = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
+    reg3B = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);
+
+    reg4A = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
+    reg4B = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
+
+    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+
+    if(GetBitHigh(reg3A)){
+      highBitMatch = GetBitHigh(reg3A);//look for high input but ignore the high output
+      firstLetter = switchboard3RegB[highBitOutput-1];
+      secondLetter = switchboard3RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg3B,highBitOutput))
+    {
+      highBitMatch = GetBitHigh(reg3B,highBitOutput);
+      firstLetter = switchboard3RegB[highBitOutput-1];
+      secondLetter = switchboard3RegB[highBitMatch-1];
+    }else if (GetBitHigh(reg4A))
+    {
+      highBitMatch = GetBitHigh(reg4A);
+      firstLetter = switchboard3RegB[highBitOutput-1];
+      secondLetter = switchboard4RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg4B))
+    {
+      highBitMatch = GetBitHigh(reg4B);
+      firstLetter = switchboard3RegB[highBitOutput-1];
+      secondLetter = switchboard4RegB[highBitMatch-1];
+    }else{
+      highBitMatch = 0;
+    }
+
+    if (highBitMatch)
+    {
+      switchboardA.push_back(firstLetter);
+      switchboardB.push_back(secondLetter);
+    }
   }
 
-  //   WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,directionIO,SWITCHBOARD1_CS);//dit is een probleem maar er zij nog 6 pinnen over dus kan als de onderste 2 niet gebruikt worden
-//   WriteSpi(spi3,SWITCHBOARD2WRITEADDR,IODIRA,0b11111111,SWITCHBOARD2_CS);
+  //spi4 with register A changes output
+  for (size_t i = 0; i < 8 ; i++)
+  {
+    changedOutput = rotl(changingOutput,i);
+    //set only 1 as output
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRA,allInput,SWITCHBOARD1_CS);
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);// one after the other the pins become an output
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRA,changedOutput,SWITCHBOARD2_CS);
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
 
-//   WriteSpi(spi3,SWITCHBOARD1WRITEADDR,GPIOB,outputIO,SWITCHBOARD1_CS);
+    //read all the switchboard registers
+    reg3A = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
+    reg3B = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);
 
-//   for (;;)
-//   {
-//     read_a = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);//hiermee gekoppeld => 1bit ernaast (verwacht 64 krijg 32, verwacht 4 krijg 2,...)
-//     ESP_LOGI(switchboard,"%d",read_a);
-//     // read_b = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);//hier hetzelfde //in arduino code is het wel juist
-//     // ESP_LOGI(switchboard,"%d",read_b);
-//     vTaskDelay(2000/portTICK_PERIOD_MS);
-//   }
+    reg4A = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
+    reg4B = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
+
+    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+
+    if(GetBitHigh(reg3A)){
+      highBitMatch = GetBitHigh(reg3A);//look for high input but ignore the high output
+      firstLetter = switchboard4RegA[highBitOutput-1];
+      secondLetter = switchboard3RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg3B))
+    {
+      highBitMatch = GetBitHigh(reg3B);
+      firstLetter = switchboard4RegA[highBitOutput-1];
+      secondLetter = switchboard3RegB[highBitMatch-1];
+    }else if (GetBitHigh(reg4A,highBitOutput))
+    {
+      highBitMatch = GetBitHigh(reg4A,highBitOutput);
+      firstLetter = switchboard4RegA[highBitOutput-1];
+      secondLetter = switchboard4RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg4B))
+    {
+      highBitMatch = GetBitHigh(reg4B);
+      firstLetter = switchboard4RegA[highBitOutput-1];
+      secondLetter = switchboard4RegB[highBitMatch-1];
+    }else{
+      highBitMatch = 0;
+    }
+
+    if (highBitMatch)
+    {
+      switchboardA.push_back(firstLetter);
+      switchboardB.push_back(secondLetter);
+    }
+  }
+
+  //spi4 with register B changes output
+  for (size_t i = 0; i < 8 ; i++)
+  {
+    changedOutput = rotl(changingOutput,i);
+    //set only 1 as output
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRA,allInput,SWITCHBOARD1_CS);
+    WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);// one after the other the pins become an output
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
+    WriteSpi(spi4,SWITCHBOARD2WRITEADDR,IODIRB,changedOutput,SWITCHBOARD2_CS);
+
+    //read all the switchboard registers
+    reg3A = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
+    reg3B = ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOB,SWITCHBOARD1_CS);
+
+    reg4A = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
+    reg4B = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
+
+    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+    
+   
+    if(GetBitHigh(reg3A)){
+      highBitMatch = GetBitHigh(reg3A);//look for high input but ignore the high output
+      firstLetter = switchboard4RegB[highBitOutput-1];
+      secondLetter = switchboard3RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg3B))
+    {
+      highBitMatch = GetBitHigh(reg3B);
+      firstLetter = switchboard4RegB[highBitOutput-1];
+      secondLetter = switchboard3RegB[highBitMatch-1];
+    }else if (GetBitHigh(reg4A))
+    {
+      highBitMatch = GetBitHigh(reg4A);
+      firstLetter = switchboard4RegB[highBitOutput-1];
+      secondLetter = switchboard4RegA[highBitMatch-1];
+    }else if (GetBitHigh(reg4B,highBitOutput))
+    {
+      highBitMatch = GetBitHigh(reg4B,highBitOutput);
+      firstLetter = switchboard4RegB[highBitOutput-1];
+      secondLetter = switchboard4RegB[highBitMatch-1];
+    }else{
+      highBitMatch = 0;
+    }
+
+    if (highBitMatch)
+    {
+      switchboardA.push_back(firstLetter);
+      switchboardB.push_back(secondLetter);
+    }
+  }
+
 }
   
-  
-
-
-
-
-
-
-
 void printRegister(int status){
   // aState = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
   ESP_LOGI(rotary, "VOLLEDIG: %d!", status);
-  ESP_LOGI(rotary, "1: %d!", GetBit(status,1,0));
-  ESP_LOGI(rotary, "2: %d!", GetBit(status,1,1));
-  ESP_LOGI(rotary, "3: %d!", GetBit(status,1,2));
-  ESP_LOGI(rotary, "4: %d!", GetBit(status,1,3));
-  ESP_LOGI(rotary, "5: %d!", GetBit(status,1,4));
-  ESP_LOGI(rotary, "6: %d!", GetBit(status,1,5));
-  ESP_LOGI(rotary, "7: %d!", GetBit(status,1,6));
-  ESP_LOGI(rotary, "8: %d!", GetBit(status,1,7));
+  ESP_LOGI(rotary, "1: %d!", GetBit(status,1,1));
+  ESP_LOGI(rotary, "2: %d!", GetBit(status,1,2));
+  ESP_LOGI(rotary, "3: %d!", GetBit(status,1,3));
+  ESP_LOGI(rotary, "4: %d!", GetBit(status,1,4));
+  ESP_LOGI(rotary, "5: %d!", GetBit(status,1,5));
+  ESP_LOGI(rotary, "6: %d!", GetBit(status,1,6));
+  ESP_LOGI(rotary, "7: %d!", GetBit(status,1,7));
+  ESP_LOGI(rotary, "8: %d!", GetBit(status,1,8));
 }
 
 void ReadRotary(int RegisterA,int NrA, int NrB, int motor,int GPIOAB){
@@ -441,15 +567,11 @@ void ReadRotary(int RegisterA,int NrA, int NrB, int motor,int GPIOAB){
     A3LastState = AState;
   }
   
-
-  
-  
 }
 
 //////////////////////////
 ///////MAIN/////////
 /////////////////////////
-
 
 extern "C"
 {
@@ -458,11 +580,11 @@ extern "C"
 
     // uint8_t dataFromPoll;
     //de cs pin van de keyboard io expander instellen als output
-    gpio_setup(KEYBOARD_CS,GPIO_MODE_OUTPUT,1,0,0);
-    gpio_setup(STEPPER_CS,GPIO_MODE_OUTPUT,1,0,0);
-    gpio_setup(SWITCHBOARD1_CS,GPIO_MODE_OUTPUT,1,0,0);
-    gpio_setup(SWITCHBOARD2_CS,GPIO_MODE_OUTPUT,1,0,0);
-    gpio_setup(ROTARY_CS,GPIO_MODE_OUTPUT,1,0,0);
+    GpioSetup(KEYBOARD_CS,GPIO_MODE_OUTPUT,1,0,0);
+    GpioSetup(STEPPER_CS,GPIO_MODE_OUTPUT,1,0,0);
+    GpioSetup(SWITCHBOARD1_CS,GPIO_MODE_OUTPUT,1,0,0);
+    GpioSetup(SWITCHBOARD2_CS,GPIO_MODE_OUTPUT,1,0,0);
+    GpioSetup(ROTARY_CS,GPIO_MODE_OUTPUT,1,0,0);
     configure_ledstrip();
 
     spi_bus_config_t buscfg = {
@@ -605,11 +727,9 @@ extern "C"
       ESP_ERROR_CHECK(ret);
       ESP_LOGI(SPI, "added spi4");
 
-      //IODIR happens in fuction because it changes often
-
-
       //the switchboard is only read when the start message button is pressed
-
+      //IODIR happens in fuction because it changes often
+      readSwitchboard();
 
       ////////////////////////////////////////////////////////////////////////////////
       ///////////////////////////////////ENIGMA USE///////////////////////////////////

@@ -19,8 +19,8 @@ int switchboard3RegB[8] = {9,10,11,12,13,14,15,16};
 int switchboard4RegA[8] = {17,18,19,20,21,22,23,24};
 int switchboard4RegB[2] = {25,26};
 
-vector<unsigned short int> switchboardA = {};
-vector<unsigned short int> switchboardB = {};
+std::vector<unsigned short int> switchboardA = {};
+std::vector<unsigned short int> switchboardB = {};
 
 esp_err_t ret;
 spi_device_handle_t spi;
@@ -31,7 +31,7 @@ spi_device_handle_t spi5;
 
 static const char *error = "error";
 static const char *TAG = "test";
-static const char *SPI = "test";
+static const char *SPI = "spi";
 
 //ledstrip variables
 static const char *LEDSTRIP = "ledstrip";
@@ -80,7 +80,7 @@ int A1LastState;
 int A2LastState;  
 int A3LastState;  
 
-static const char *ROTARY = "rotary";
+static const char *rotary = "rotary";
 #define ROTARY_CS GPIO_NUM_12
 
 #define ROTARYWRITEADDR 0x48
@@ -204,7 +204,7 @@ static void set_multiple_leds(int ledNumber1, int ledNumber2, int ledNumber3)
 {
   ledstrip->clear(ledstrip, 50);
   /* If the addressable LED is enabled */
-  ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
+  ESP_LOGI(LEDSTRIP, "Turning ON LED %d, %d,%d!", ledNumber1,ledNumber2,ledNumber3);
   ledstrip->set_pixel(ledstrip, ledNumber1, 16, 16, 16);
   ledstrip->set_pixel(ledstrip, ledNumber2, 16, 16, 16);
   ledstrip->set_pixel(ledstrip, ledNumber3, 16, 16, 16);
@@ -534,15 +534,16 @@ void printRegister(int status){
 void ReadRotary(int RegisterA,int NrA, int NrB, int motor,int GPIOAB){
   int AState = GetBit(RegisterA,1,NrA);
   int BState = GetBit(RegisterA,1,NrB);
-  int ALastState;
+  int ALastState = -1;
+  int counter = 0;
 
   if (NrA == 0)
   {
-    ALastState = A1LastState
+    ALastState = A1LastState;
   }else if(NrA == 2){
-    ALastState = A2LastState
+    ALastState = A2LastState;
   }else if(NrA ==4){
-    ALastState = A3LastState
+    ALastState = A3LastState;
   }
 
   if (AState<ALastState){
@@ -553,9 +554,9 @@ void ReadRotary(int RegisterA,int NrA, int NrB, int motor,int GPIOAB){
           counter --;
           turnMotor(-10,motor,GPIOAB);
       }
-      ESP_LOGI(ROTARY, "counter %d ",counter);
-      ESP_LOGI(ROTARY, "a: %d, b: %d",AState,BState);
-      ESP_LOGI(ROTARY," ");
+      ESP_LOGI(rotary, "counter %d ",counter);
+      ESP_LOGI(rotary, "a: %d, b: %d",AState,BState);
+      ESP_LOGI(rotary," ");
   }
 
   if (NrA == 0)
@@ -635,7 +636,7 @@ extern "C"
     ESP_LOGI(error, "error bus code %d!", ret);//this way I get extra confirmation if the error code is 0
 
     //start big loop
-    while (True)
+    while (true)
     {
       ////////////////////////////////////////////////////////////////////////////////
       //////////////////////////////////SETUP ENIGMA//////////////////////////////////
@@ -658,12 +659,12 @@ extern "C"
 
       GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
 
-      A1LastState = GetBit(aLastState,1,0);
-      A2LastState = GetBit(aLastState,1,2);
-      A3LastState = GetBit(aLastState,1,4);
+      A1LastState = GetBit(GpioRegister5A,1,0);
+      A2LastState = GetBit(GpioRegister5A,1,2);
+      A3LastState = GetBit(GpioRegister5A,1,4);
 
       
-      while (/* condition */)//condition will be while start message is not pushed
+      while (1)//condition will be while start message is not pushed
       {
         //checks the buttons pushed
         GpioRegister5B = ReadSpi(spi5,ROTARYREADADDR,GPIOB,ROTARY_CS);
@@ -760,7 +761,7 @@ extern "C"
 
 
       
-      while (/* condition */)// condition is as long as the message end button isn't pressed
+      while (1)// condition is as long as the message end button isn't pressed
       {
         //Set a row high en read the collumn. the combination of row and collumn tells if button is pressend and which one
         setButtonOutput(0b00000001);

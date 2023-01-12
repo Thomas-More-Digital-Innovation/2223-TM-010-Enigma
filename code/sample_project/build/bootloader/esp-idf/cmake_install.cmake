@@ -1,4 +1,4 @@
-# Install script for directory: C:/Espressif/frameworks/esp-idf-v4.4.2-2
+# Install script for directory: C:/Users/Hanne/esp/esp-idf
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,30 +34,101 @@ endif()
 
 # Set default install directory permissions.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Espressif/tools/tools/xtensa-esp32-elf/esp-2021r2-patch3-8.4.0/xtensa-esp32-elf/bin/xtensa-esp32-elf-objdump.exe")
+  set(CMAKE_OBJDUMP "C:/Espressif3/tools/tools/xtensa-esp32-elf/esp-2022r1-11.2.0/xtensa-esp32-elf/bin/xtensa-esp32-elf-objdump.exe")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  # Include the install script for each subdirectory.
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/newlib/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/hal/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/soc/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/micro-ecc/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/spi_flash/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/bootloader_support/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/efuse/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/esp_system/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/esp_hw_support/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/xtensa/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/esp32/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/esp_common/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/esp_rom/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/log/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/esptool_py/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/partition_table/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/bootloader/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/freertos/cmake_install.cmake")
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/bootloader/esp-idf/main/cmake_install.cmake")
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/xtensa/cmake_install.cmake")
+endif()
 
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/newlib/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/soc/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/micro-ecc/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/hal/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/spi_flash/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/esp_app_format/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/bootloader_support/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/efuse/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/esp_system/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/esp_hw_support/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/esp_common/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/esp_rom/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/log/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/esptool_py/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/partition_table/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/bootloader/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/freertos/cmake_install.cmake")
+endif()
+
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/bootloader/esp-idf/main/cmake_install.cmake")
 endif()
 

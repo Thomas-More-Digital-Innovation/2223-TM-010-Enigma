@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project
+# Install script for directory: C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,13 +34,12 @@ endif()
 
 # Set default install directory permissions.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Espressif/tools/tools/xtensa-esp32-elf/esp-2021r2-patch3-8.4.0/xtensa-esp32-elf/bin/xtensa-esp32-elf-objdump.exe")
+  set(CMAKE_OBJDUMP "C:/Espressif3/tools/tools/xtensa-esp32-elf/esp-2022r1-11.2.0/xtensa-esp32-elf/bin/xtensa-esp32-elf-objdump.exe")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  # Include the install script for each subdirectory.
-  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/esp-idf/cmake_install.cmake")
-
+  # Include the install script for the subdirectory.
+  include("C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/esp-idf/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)
@@ -51,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/enigma/sample_project/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "C:/Users/Hanne/Documents/school/school2022_2023/Enigma/code/vscodeESPIDF/espv5/sample_project/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

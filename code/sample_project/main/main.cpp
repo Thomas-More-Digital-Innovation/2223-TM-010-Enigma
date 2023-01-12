@@ -37,7 +37,7 @@ static const char *SPI = "spi";
 static const char *LEDSTRIP = "ledstrip";
 #define ledstrip_GPIO GPIO_NUM_14
 #define CONFIG_BLINK_LED_RMT_CHANNEL 1
-static led_strip_t *ledstrip;
+// static led_strip_t *ledstrip;
 
 //for every io expander
 #define IODIRA 0x00
@@ -93,7 +93,7 @@ static const char *rotary = "rotary";
 
 /////gpio///////////////////////////
 void GpioSetup(gpio_num_t pinnumber,gpio_mode_t mode, bool on_or_off, bool pullup_en, bool pulldown_en){
-    gpio_pad_select_gpio(pinnumber);//GPIO_NUM_13 is gpio pin 13
+    esp_rom_gpio_pad_select_gpio(pinnumber);//GPIO_NUM_13 is gpio pin 13
     ESP_ERROR_CHECK(gpio_set_direction(pinnumber,mode));
     ESP_ERROR_CHECK(gpio_set_level(pinnumber,on_or_off));
     if (pullup_en){
@@ -265,36 +265,36 @@ void getLetterFromInputs(int column, int row){
 
 
 /////ledstrip///////////////////////////
-static void set_ledstrip(int ledNumber)
-{
-  ledstrip->clear(ledstrip, 50);
-  /* If the addressable LED is enabled */
-  ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
-  ledstrip->set_pixel(ledstrip, ledNumber, 0, 255, 0);
-  /* Refresh the strip to send data */
-  ledstrip->refresh(ledstrip, 100);
-}
+// static void set_ledstrip(int ledNumber)
+// {
+//   ledstrip->clear(ledstrip, 50);
+//   /* If the addressable LED is enabled */
+//   ESP_LOGI(LEDSTRIP, "Turning ON LED %d!", ledNumber);
+//   ledstrip->set_pixel(ledstrip, ledNumber, 0, 255, 0);
+//   /* Refresh the strip to send data */
+//   ledstrip->refresh(ledstrip, 100);
+// }
 
-static void set_multiple_leds(int ledNumber1, int ledNumber2, int ledNumber3)
-{
-  ledstrip->clear(ledstrip, 50);
-  /* If the addressable LED is enabled */
-  ESP_LOGI(LEDSTRIP, "Turning ON LED %d, %d,%d!", ledNumber1,ledNumber2,ledNumber3);
-  ledstrip->set_pixel(ledstrip, ledNumber1, 16, 16, 16);
-  ledstrip->set_pixel(ledstrip, ledNumber2, 16, 16, 16);
-  ledstrip->set_pixel(ledstrip, ledNumber3, 16, 16, 16);
-  /* Refresh the strip to send data */
-  ledstrip->refresh(ledstrip, 100);
-}
+// static void set_multiple_leds(int ledNumber1, int ledNumber2, int ledNumber3)
+// {
+//   ledstrip->clear(ledstrip, 50);
+//   /* If the addressable LED is enabled */
+//   ESP_LOGI(LEDSTRIP, "Turning ON LED %d, %d,%d!", ledNumber1,ledNumber2,ledNumber3);
+//   ledstrip->set_pixel(ledstrip, ledNumber1, 16, 16, 16);
+//   ledstrip->set_pixel(ledstrip, ledNumber2, 16, 16, 16);
+//   ledstrip->set_pixel(ledstrip, ledNumber3, 16, 16, 16);
+//   /* Refresh the strip to send data */
+//   ledstrip->refresh(ledstrip, 100);
+// }
 
-static void configure_ledstrip(void)
-{
-  ESP_LOGI(LEDSTRIP, "configuring the ledstrip");
-  /* initialise the led strip with rmt channel, gpio for data line and amount om leds on the strip*/
-  ledstrip = led_strip_init(CONFIG_BLINK_LED_RMT_CHANNEL, ledstrip_GPIO, 26);
-  /* Set all LED off to clear all pixels */
-  ledstrip->clear(ledstrip, 50);
-}
+// static void configure_ledstrip(void)
+// {
+//   ESP_LOGI(LEDSTRIP, "configuring the ledstrip");
+//   /* initialise the led strip with rmt channel, gpio for data line and amount om leds on the strip*/
+//   ledstrip = led_strip_init(CONFIG_BLINK_LED_RMT_CHANNEL, ledstrip_GPIO, 26);
+//   /* Set all LED off to clear all pixels */
+//   ledstrip->clear(ledstrip, 50);
+// }
 /////stepperMotor///////////////////////////
 void turnMotor(int steps, int motor, int GPIOAB){
   //motor 1 and 2 are on gpioB, 3 on gpioA
@@ -608,7 +608,7 @@ extern "C"
     GpioSetup(SWITCHBOARD1_CS,GPIO_MODE_OUTPUT,1,0,0);
     GpioSetup(SWITCHBOARD2_CS,GPIO_MODE_OUTPUT,1,0,0);
     GpioSetup(ROTARY_CS,GPIO_MODE_OUTPUT,1,0,0);
-    configure_ledstrip();
+    // configure_ledstrip();
 
     spi_bus_config_t buscfg = {
         .mosi_io_num = GPIO_NUM_18,

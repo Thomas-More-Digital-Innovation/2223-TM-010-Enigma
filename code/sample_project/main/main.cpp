@@ -660,6 +660,7 @@ extern "C"
     //start big loop
     while (true)
     {
+
       // ////////////////////////////////////////////////////////////////////////////////
       // //////////////////////////////////SETUP ENIGMA//////////////////////////////////
       // ////////////////////////////////////////////////////////////////////////////////
@@ -728,6 +729,7 @@ extern "C"
       //   ReadRotary(GpioRegister5A,4,5,3,GPIOA);//this reads the third rotary encoder and turns the stepper motor if neccesary
 
       // }
+
       
 
       // ////////////////////////////////////////////////////////////////////////////////
@@ -791,6 +793,7 @@ extern "C"
 
 
       ESP_LOGI(keyboardLog, "started reading");
+
       while (1)// condition is as long as the message end button isn't pressed
       {
         //Set a row high en read the collumn. the combination of row and collumn tells if button is pressend and which one

@@ -46,13 +46,14 @@ static led_strip_t *ledstrip;
 #define GPIOB 0x13
 //only for keyboard expander
 static const char *keyboardLog = "keyboard";
-#define KEYBOARD_CS GPIO_NUM_21
+#define KEYBOARD_CS GPIO_NUM_14
 #define KEYBOARDWRITEADDR 0x40
 #define KEYBOARDREADADDR 0x41
 unsigned char  gpioa_state = 0; 
 unsigned char  gpioa_stateOriginal = 0;
+int global_state = 0;
 
-char keyboardPoints[3][3] = {{'a','b','c'}, {'d','e','f'},{'g','h','i'}};
+char keyboardPoints[4][7] = {{'q','w','e','r','t','z','u'}, {'a','s','d','f','g','h','j'},{'p','y','x','c','v','b','n'},{'i','o','k','m','l','1','2'}};//'1' en '2' is enkel om [4][7] te doen kloppen.
 
 //stepper motor
 static const char *stepper = "stepper motor";
@@ -62,7 +63,7 @@ static const char *stepper = "stepper motor";
 
 //switchboard
 static const char *switchboard = "switchboard";
-#define SWITCHBOARD1_CS GPIO_NUM_15
+#define SWITCHBOARD1_CS GPIO_NUM_12
 #define SWITCHBOARD2_CS GPIO_NUM_27
 
 #define SWITCHBOARD1WRITEADDR 0x44
@@ -81,7 +82,7 @@ int A2LastState;
 int A3LastState;  
 
 static const char *rotary = "rotary";
-#define ROTARY_CS GPIO_NUM_12
+#define ROTARY_CS GPIO_NUM_15
 
 #define ROTARYWRITEADDR 0x48
 #define ROTARYREADADDR 0X49
@@ -147,6 +148,62 @@ uint8_t ReadSpi(spi_device_handle_t spi,const uint8_t addresExpander,const uint8
   return rx_data[2];	
 }
 
+//this function rotates a byte to the left by 1
+unsigned char rotl(unsigned char c,int iteration)//https://stackoverflow.com/questions/19204750/how-do-i-perform-a-circular-rotation-of-a-byte
+{
+  if (iteration)//if this is 0 the number stays the same, else it's rotated
+  {
+    return (c << 1) | (c >> 7);
+  }
+  
+  return c;
+}
+
+//https://www.geeksforgeeks.org/extract-k-bits-given-position-number/
+int GetBit(int number, int amountBits, int startingPos)
+{
+    return (((1 << amountBits) - 1) & (number >> (startingPos - 1)));
+}
+
+int GetBitHigh(int number){
+  for (size_t i = 1; i < 9; i++)
+  {
+    if (GetBit(number,1,i))
+    {
+      return i;
+    }
+  }
+  return 0;
+  
+}
+
+int GetBitHigh(int number,int ignoreNumber){
+  for (size_t i = 1; i < 9; i++)
+  {
+    if (i!=ignoreNumber)//the ignore number is the nr of the pin that is set as a high output
+    {
+      if (GetBit(number,1,i))
+      {
+        return i;
+      }
+    }
+  }
+  return 0;
+  
+}
+
+void printRegister(int status){
+  // aState = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
+  ESP_LOGI(rotary, "VOLLEDIG: %d!", status);
+  ESP_LOGI(rotary, "1: %d!", GetBit(status,1,1));
+  ESP_LOGI(rotary, "2: %d!", GetBit(status,1,2));
+  ESP_LOGI(rotary, "3: %d!", GetBit(status,1,3));
+  ESP_LOGI(rotary, "4: %d!", GetBit(status,1,4));
+  ESP_LOGI(rotary, "5: %d!", GetBit(status,1,5));
+  ESP_LOGI(rotary, "6: %d!", GetBit(status,1,6));
+  ESP_LOGI(rotary, "7: %d!", GetBit(status,1,7));
+  ESP_LOGI(rotary, "8: %d!", GetBit(status,1,8));
+}
 /////keyboard///////////////////////////
 
 int readButtonInputs(){
@@ -160,7 +217,7 @@ int readButtonInputs(){
     gpioa_state = ReadSpi(spi, KEYBOARDREADADDR, GPIOA,KEYBOARD_CS);
     vTaskDelay(10/portTICK_PERIOD_MS);
   }
-  
+  global_state = gpioa_state;
   return gpioa_stateOriginal;//when the button is released return what was in the register
 }
 
@@ -172,19 +229,37 @@ void setButtonOutput(int binairyNumber){
 
 void getLetterFromInputs(int column, int row){
   char letter;
-  if(column==1){//collumn is the number in GPIOA
-    letter = keyboardPoints[0][row];
+  //collumn is the number in GPIOA
+  if(column==192){
+    letter = keyboardPoints[row][0];
     ESP_LOGI(keyboardLog, "letter %c", letter);
     
-  }else if (column == 2)
+  }else if (column == 1)
   {
-    letter = keyboardPoints[1][row];
+    letter = keyboardPoints[row][1];
+    ESP_LOGI(keyboardLog, "letter %c", letter);
+  } else if (column == 2)
+  {
+    letter = keyboardPoints[row][2];
     ESP_LOGI(keyboardLog, "letter %c", letter);
   } else if (column == 4)
   {
-    letter = keyboardPoints[2][row];
+    letter = keyboardPoints[row][3];
+    ESP_LOGI(keyboardLog, "letter %c", letter);
+  } else if (column == 8)
+  {
+    letter = keyboardPoints[row][4];
+    ESP_LOGI(keyboardLog, "letter %c", letter);
+  }else if (column == 16)
+  {
+    letter = keyboardPoints[row][5];
+    ESP_LOGI(keyboardLog, "letter %c", letter);
+  }else if (column == 32)
+  {
+    letter = keyboardPoints[row][6];
     ESP_LOGI(keyboardLog, "letter %c", letter);
   }
+  
 }
 
 
@@ -262,49 +337,7 @@ void turnMotor(int steps, int motor, int GPIOAB){
   }
   
 }
-//this function rotates a byte to the left by 1
-unsigned char rotl(unsigned char c,int iteration)//https://stackoverflow.com/questions/19204750/how-do-i-perform-a-circular-rotation-of-a-byte
-{
-  if (iteration)//if this is 0 the number stays the same, else it's rotated
-  {
-    return (c << 1) | (c >> 7);
-  }
-  
-  return c;
-}
 
-//https://www.geeksforgeeks.org/extract-k-bits-given-position-number/
-int GetBit(int number, int amountBits, int startingPos)
-{
-    return (((1 << amountBits) - 1) & (number >> (startingPos - 1)));
-}
-
-int GetBitHigh(int number){
-  for (size_t i = 1; i < 9; i++)
-  {
-    if (GetBit(number,1,i))
-    {
-      return i;
-    }
-  }
-  return 0;
-  
-}
-
-int GetBitHigh(int number,int ignoreNumber){
-  for (size_t i = 1; i < 9; i++)
-  {
-    if (i!=ignoreNumber)//the ignore number is the nr of the pin that is set as a high output
-    {
-      if (GetBit(number,1,i))
-      {
-        return i;
-      }
-    }
-  }
-  return 0;
-  
-}
 
 void readSwitchboard(){
   int allInput = 0b11111111;
@@ -518,18 +551,7 @@ void readSwitchboard(){
 
 }
   
-void printRegister(int status){
-  // aState = ReadSpi(spi4,SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
-  ESP_LOGI(rotary, "VOLLEDIG: %d!", status);
-  ESP_LOGI(rotary, "1: %d!", GetBit(status,1,1));
-  ESP_LOGI(rotary, "2: %d!", GetBit(status,1,2));
-  ESP_LOGI(rotary, "3: %d!", GetBit(status,1,3));
-  ESP_LOGI(rotary, "4: %d!", GetBit(status,1,4));
-  ESP_LOGI(rotary, "5: %d!", GetBit(status,1,5));
-  ESP_LOGI(rotary, "6: %d!", GetBit(status,1,6));
-  ESP_LOGI(rotary, "7: %d!", GetBit(status,1,7));
-  ESP_LOGI(rotary, "8: %d!", GetBit(status,1,8));
-}
+
 
 void ReadRotary(int RegisterA,int NrA, int NrB, int motor,int GPIOAB){
   int AState = GetBit(RegisterA,1,NrA);
@@ -599,34 +621,34 @@ extern "C"
 
     spi_device_interface_config_t devcfg = {
         .mode=0,                                //SPI mode 0
-        .clock_speed_hz=10*1000*1000, //10MHz
+        .clock_speed_hz=5*1000*1000, //10MHz
         .spics_io_num=KEYBOARD_CS,               //CS pin
         .queue_size=20                         //We want to be able to queue 7 transactions at a time
     };
 
     spi_device_interface_config_t devcfg2 = {
         .mode=0,                                //SPI mode 0
-        .clock_speed_hz=10*1000*1000, //10MHz
+        .clock_speed_hz=5*1000*1000, //10MHz
         .spics_io_num=STEPPER_CS,               //CS pin
         .queue_size=7                         //We want to be able to queue 7 transactions at a time
     };
 
     spi_device_interface_config_t devcfg3 = {
         .mode=0,                                //SPI mode 0
-        .clock_speed_hz=10*1000*1000, //10MHz
+        .clock_speed_hz=5*1000*1000, //10MHz
         .spics_io_num=SWITCHBOARD1_CS,               //CS pin
         .queue_size=7                         //We want to be able to queue 7 transactions at a time
     };
     spi_device_interface_config_t devcfg4 = {
         .mode=0,                                //SPI mode 0
-        .clock_speed_hz=10*1000*1000, //10MHz
+        .clock_speed_hz=5*1000*1000, //10MHz
         .spics_io_num=SWITCHBOARD2_CS,               //CS pin
         .queue_size=7                         //We want to be able to queue 7 transactions at a time
     };
 
         spi_device_interface_config_t devcfg5 = {
         .mode=0,                                //SPI mode 0
-        .clock_speed_hz=10*1000*1000, //10MHz
+        .clock_speed_hz=5*1000*1000, //10MHz
         .spics_io_num=ROTARY_CS,               //CS pin
         .queue_size=7                         //We want to be able to queue 7 transactions at a time
     };
@@ -638,111 +660,121 @@ extern "C"
     //start big loop
     while (true)
     {
-      ////////////////////////////////////////////////////////////////////////////////
-      //////////////////////////////////SETUP ENIGMA//////////////////////////////////
-      ////////////////////////////////////////////////////////////////////////////////
-      //spi 2,5 needed
-      ret=spi_bus_add_device(HSPI_HOST, &devcfg2, &spi2);//this adds io expander 2 to the bus 
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "added spi2");
 
-      ret=spi_bus_add_device(HSPI_HOST, &devcfg5, &spi5);//this adds io expander 5 to the bus
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "added spi5");
+      // ////////////////////////////////////////////////////////////////////////////////
+      // //////////////////////////////////SETUP ENIGMA//////////////////////////////////
+      // ////////////////////////////////////////////////////////////////////////////////
+      // //spi 2,5 needed
+      // ret=spi_bus_add_device(HSPI_HOST, &devcfg2, &spi2);//this adds io expander 2 to the bus 
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "added spi2");
 
-      //stepper motor io expander as outputs
-      WriteSpi(spi2,STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
-      WriteSpi(spi2,STEPPERWRITEADDR,IODIRB,0b00000000,STEPPER_CS);
-      //rotary encoder io expander as inputs
-      WriteSpi(spi5,ROTARYWRITEADDR,IODIRA,0b11111111,ROTARY_CS);
-      WriteSpi(spi5,ROTARYWRITEADDR,IODIRB,0b11111111,ROTARY_CS);
+      // ret=spi_bus_add_device(HSPI_HOST, &devcfg5, &spi5);//this adds io expander 5 to the bus
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "added spi5");
 
-      GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
+      // //stepper motor io expander as outputs
+      // WriteSpi(spi2,STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
+      // WriteSpi(spi2,STEPPERWRITEADDR,IODIRB,0b00000000,STEPPER_CS);
+      // //rotary encoder io expander as inputs
+      // WriteSpi(spi5,ROTARYWRITEADDR,IODIRA,0b11111111,ROTARY_CS);
+      // WriteSpi(spi5,ROTARYWRITEADDR,IODIRB,0b11111111,ROTARY_CS);
 
-      A1LastState = GetBit(GpioRegister5A,1,0);
-      A2LastState = GetBit(GpioRegister5A,1,2);
-      A3LastState = GetBit(GpioRegister5A,1,4);
+      // GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
+
+      // A1LastState = GetBit(GpioRegister5A,1,0);
+      // A2LastState = GetBit(GpioRegister5A,1,2);
+      // A3LastState = GetBit(GpioRegister5A,1,4);
 
       
-      while (1)//condition will be while start message is not pushed
-      {
-        //checks the buttons pushed
-        GpioRegister5B = ReadSpi(spi5,ROTARYREADADDR,GPIOB,ROTARY_CS);
-        if (GetBit(GpioRegister5B,1,0))
-        {
-          //rotary 1 pushed
-          if (choice_rotor_left != 5)
-          {
-            choice_rotor_left +=1;
-          }else{
-            choice_rotor_left = 1;
-          }
-          set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
-        } else if(GetBit(GpioRegister5B,1,1)){
-          //rotary 2 pushed
-          if (choice_rotor_mid != 5)
-          {
-            choice_rotor_mid +=1;
-          }else{
-            choice_rotor_mid = 1;
-          }
-          set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
-        }else if (GetBit(GpioRegister5B,1,2)){
-          //rotary 3 pushed
-          if (choice_rotor_right != 5)
-          {
-            choice_rotor_right +=1;
-          }else{
-            choice_rotor_right = 1;
-          }
-          set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
-        }
+      // while (1)//condition will be while start message is not pushed
+      // {
+      //   //checks the buttons pushed
+      //   GpioRegister5B = ReadSpi(spi5,ROTARYREADADDR,GPIOB,ROTARY_CS);
+      //   if (GetBit(GpioRegister5B,1,0))
+      //   {
+      //     //rotary 1 pushed
+      //     if (choice_rotor_left != 5)
+      //     {
+      //       choice_rotor_left +=1;
+      //     }else{
+      //       choice_rotor_left = 1;
+      //     }
+      //     set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
+      //   } else if(GetBit(GpioRegister5B,1,1)){
+      //     //rotary 2 pushed
+      //     if (choice_rotor_mid != 5)
+      //     {
+      //       choice_rotor_mid +=1;
+      //     }else{
+      //       choice_rotor_mid = 1;
+      //     }
+      //     set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
+      //   }else if (GetBit(GpioRegister5B,1,2)){
+      //     //rotary 3 pushed
+      //     if (choice_rotor_right != 5)
+      //     {
+      //       choice_rotor_right +=1;
+      //     }else{
+      //       choice_rotor_right = 1;
+      //     }
+      //     set_multiple_leds(choice_rotor_left,choice_rotor_mid,choice_rotor_right);
+      //   }
 
-        //checks the turning of the rotary encoder and turns the stepper motor accordingly
-        GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
+      //   //checks the turning of the rotary encoder and turns the stepper motor accordingly
+      //   GpioRegister5A = ReadSpi(spi5,ROTARYREADADDR,GPIOA,ROTARY_CS);
 
-        ReadRotary(GpioRegister5A,0,1,1,GPIOB);//this reads the first rotary encoder and turns the stepper motor if neccesary
-        ReadRotary(GpioRegister5A,2,3,2,GPIOB);//this reads the second rotary encoder and turns the stepper motor if neccesary
-        ReadRotary(GpioRegister5A,4,5,3,GPIOA);//this reads the third rotary encoder and turns the stepper motor if neccesary
+      //   ReadRotary(GpioRegister5A,0,1,1,GPIOB);//this reads the first rotary encoder and turns the stepper motor if neccesary
+      //   ReadRotary(GpioRegister5A,2,3,2,GPIOB);//this reads the second rotary encoder and turns the stepper motor if neccesary
+      //   ReadRotary(GpioRegister5A,4,5,3,GPIOA);//this reads the third rotary encoder and turns the stepper motor if neccesary
 
-      }
+      // }
+
       
 
-      ////////////////////////////////////////////////////////////////////////////////
-      ////////////////////////////////SWITCHBOARD READ////////////////////////////////
-      ////////////////////////////////////////////////////////////////////////////////
-      //spi 3,4 needed
-      ret=spi_bus_remove_device(spi2);//this frees space on the bus else ESP_ERR_NO_MEM
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "removed spi2");
+      // ////////////////////////////////////////////////////////////////////////////////
+      // ////////////////////////////////SWITCHBOARD READ////////////////////////////////
+      // ////////////////////////////////////////////////////////////////////////////////
+      // //spi 3,4 needed
+      // ret=spi_bus_remove_device(spi2);//this frees space on the bus else ESP_ERR_NO_MEM
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "removed spi2");
 
-      ret=spi_bus_remove_device(spi5);//this frees space on the bus else ESP_ERR_NO_MEM
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "removed spi5");
+      // ret=spi_bus_remove_device(spi5);//this frees space on the bus else ESP_ERR_NO_MEM
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "removed spi5");
 
-      ret=spi_bus_add_device(HSPI_HOST, &devcfg3, &spi3);//this adds io expander 3 to the bus 
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "added spi3");
+      // ret=spi_bus_add_device(HSPI_HOST, &devcfg3, &spi3);//this adds io expander 3 to the bus 
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "added spi3");
 
-      ret=spi_bus_add_device(HSPI_HOST, &devcfg4, &spi4);//this adds io expander 4 to the bus
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "added spi4");
+      // WriteSpi(spi3,SWITCHBOARD1WRITEADDR,IODIRA,0b11111111,SWITCHBOARD1_CS);
+      // while (1)
+      // {
+      //   printRegister(ReadSpi(spi3,SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS));
+      //   vTaskDelay(2000/portTICK_PERIOD_MS);
+      // }
+      
 
-      //the switchboard is only read when the start message button is pressed
-      //IODIR happens in fuction because it changes often
-      readSwitchboard();
+      // ret=spi_bus_add_device(HSPI_HOST, &devcfg4, &spi4);//this adds io expander 4 to the bus
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "added spi4");
+
+      // //the switchboard is only read when the start message button is pressed
+      // //IODIR happens in fuction because it changes often
+      // readSwitchboard();
 
       ////////////////////////////////////////////////////////////////////////////////
       ///////////////////////////////////ENIGMA USE///////////////////////////////////
       ////////////////////////////////////////////////////////////////////////////////
       
-      ret=spi_bus_remove_device(spi3);//this frees space on the bus else ESP_ERR_NO_MEM
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "removed spi2");
+      // ret=spi_bus_remove_device(spi3);//this frees space on the bus else ESP_ERR_NO_MEM
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "removed spi2");
 
-      ret=spi_bus_remove_device(spi4);//this frees space on the bus else ESP_ERR_NO_MEM
-      ESP_ERROR_CHECK(ret);
-      ESP_LOGI(SPI, "removed spi4");
+      // ret=spi_bus_remove_device(spi4);//this frees space on the bus else ESP_ERR_NO_MEM
+      // ESP_ERROR_CHECK(ret);
+      // ESP_LOGI(SPI, "removed spi4");
 
       ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);//this adds io expander 1 to the bus 
       ESP_ERROR_CHECK(ret);
@@ -760,7 +792,8 @@ extern "C"
       WriteSpi(spi2,STEPPERWRITEADDR,IODIRB,0b00000000,STEPPER_CS);
 
 
-      
+      ESP_LOGI(keyboardLog, "started reading");
+
       while (1)// condition is as long as the message end button isn't pressed
       {
         //Set a row high en read the collumn. the combination of row and collumn tells if button is pressend and which one
@@ -770,10 +803,16 @@ extern "C"
         getLetterFromInputs(readButtonInputs(),1);
         setButtonOutput(0b00000100);
         getLetterFromInputs(readButtonInputs(),2);
+        setButtonOutput(0b00001000);
+        getLetterFromInputs(readButtonInputs(),3);
         //is nu voor 3x3 button matrix, moet nog vergroot worden, de letter moet nog vertaald worden en de led moet nog aan gaan
+        int read_keyboard = ReadSpi(spi,KEYBOARDREADADDR,GPIOA,KEYBOARD_CS);
+        // printRegister(read_keyboard);
+        // vTaskDelay(20/portTICK_PERIOD_MS);
   
 
       }
+      ESP_LOGI(keyboardLog, "ended reading");
       
 
       ////////////////////////////////////////////////////////////////////////////////

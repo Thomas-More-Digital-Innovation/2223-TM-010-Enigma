@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <vector>
+#include <FastLED.h>
+
 using namespace std;
 
 class Rotor{
@@ -54,6 +56,11 @@ class Rotor{
 
 };
 
+//ledstrip
+#define NUM_LEDS 26
+#define LED_PIN 21
+CRGB leds[NUM_LEDS];
+
 vector<unsigned short int> vector_rotor_lefta;
 vector<unsigned short int> vector_rotor_leftb;
 
@@ -83,6 +90,11 @@ vector<unsigned short int> reflectorb({20,21,11,1,13,24,3,4,22,18,23,17,19});
 
 vector<vector<unsigned short int>> possibleRotors{rotor1a,rotor1b,rotor2a,rotor2b,rotor3a,rotor3b,rotor4a,rotor4b,rotor5a,rotor5b};
 
+vector<unsigned short int> keyboardSequence({17,23,5,18,20,26,21,9,15,1,19,4,6,7,8,10,11,16,25,24,3,22,2,14,13,12});
+vector<unsigned short int> keyboardTopLayer({17,23,5,18,20,26,21,9,15});
+vector<unsigned short int> keyboardMidLayer({1,19,4,6,7,8,10,11});
+vector<unsigned short int> keyboardBottomLayer({16,25,24,3,22,2,14,13,12});
+
 //for every io expander
 #define IODIRA 0x00
 #define IODIRB 0x01
@@ -96,8 +108,8 @@ unsigned char  gpioa_state = 0;
 unsigned char  gpioa_stateOriginal = 0;
 int global_state = 0;
 
-char keyboardPoints[4][7] = {{'q','w','e','r','t','z','u'}, {'a','s','d','f','g','h','j'},{'p','y','x','c','v','b','n'},{'i','o','k','m','l','1','2'}};//'1' en '2' is enkel om [4][7] te doen kloppen.
-
+// char keyboardPoints[4][7] = {{'q','w','e','r','t','z','u'}, {'a','s','d','f','g','h','j'},{'p','y','x','c','v','b','n'},{'i','o','k','m','l','1','2'}};//'1' en '2' is enkel om [4][7] te doen kloppen.
+char keyboardPoints[4][7] = {{'o','i','u','z','t','r','e'}, {'k','j','h','g','f','d','s'},{'l','m','n','b','v','c','x'},{'w','q','a','y','p','1','2'}};
 //stepper motor
 #define STEPPER_CS 32
 #define STEPPERWRITEADDR 0x42
@@ -154,6 +166,7 @@ Rotor rotorMid(1,8,2,possibleRotors[2],possibleRotors[3]);
 Rotor rotorRight(1,8,3,possibleRotors[4],possibleRotors[5]);
 
 int actualRotor;
+int rotaryPushed = false;
 //////////////////////////
 ///////FUNCTIONS/////////
 /////////////////////////
@@ -208,6 +221,56 @@ int invertBits(int num)
        num = (num ^ (1 << i));
   
     return num;
+}
+
+unsigned short int get_index(vector<unsigned short int> vector, unsigned short int letter)
+{
+    auto position = find(vector.begin(), vector.end(), letter);//met find wordt er niet van 0 geteld
+
+    if (position != vector.end()) 
+    {
+        int index = position - vector.begin();//dit maakt het de index, vector eerste element is index 0
+        return index;
+    }
+    else {
+        return 30;//30 is te veel en betekend dat de letter niet gevonden werd in de vector
+    }
+}
+
+//led functions
+void showPositionLed(int position){
+  FastLED.clear();
+  int index = get_index(keyboardSequence,position);
+  if (index>=0 && index<=26)
+  {
+    leds[index] = CRGB::White;
+  }else{
+    Serial.println("index of led not in between 1 and 26 index:"+ String(index)+" position:"+String(position));
+  }
+  FastLED.show();
+}
+
+void showLedsRotorChoice(int choiceLeft, int choiceMid, int choiceRight){
+  FastLED.clear();
+
+  leds[choiceLeft-1] = CRGB::White;
+  leds[choiceMid+8] = CRGB::White;
+  leds[choiceRight+16] = CRGB::White;
+
+  FastLED.show();
+
+}
+
+void ledsMoving(){
+  for (size_t i = 0; i < 26; i++)
+  {
+    FastLED.clear();
+    leds[i] = CRGB::White;
+    FastLED.show();
+    vTaskDelay(50/portTICK_PERIOD_MS);
+  }
+  FastLED.clear();
+  
 }
 
 void printRegister(int status){
@@ -310,10 +373,10 @@ void turnMotor(int steps, int motor, int GPIOAB){
   int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b00001100<<4;
   int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
 
-  Serial.println("step1 "+String(step1));
-  Serial.println("step2 "+String(step2));
-  Serial.println("step3 "+String(step3));
-  Serial.println("step4 "+String(step4));
+  // Serial.println("step1 "+String(step1));
+  // Serial.println("step2 "+String(step2));
+  // Serial.println("step3 "+String(step3));
+  // Serial.println("step4 "+String(step4));
 
   if (steps >0){
     for (size_t i = 0; i < steps; i++)
@@ -326,10 +389,10 @@ void turnMotor(int steps, int motor, int GPIOAB){
       vTaskDelay(10/portTICK_PERIOD_MS);
       WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
       vTaskDelay(10/portTICK_PERIOD_MS);
-      Serial.println("step1 "+String(step1));
-      Serial.println("step2 "+String(step2));
-      Serial.println("step3 "+String(step3));
-      Serial.println("step4 "+String(step4));
+      // Serial.println("step1 "+String(step1));
+      // Serial.println("step2 "+String(step2));
+      // Serial.println("step3 "+String(step3));
+      // Serial.println("step4 "+String(step4));
     }
   } else if (steps <0)
   {
@@ -346,22 +409,6 @@ void turnMotor(int steps, int motor, int GPIOAB){
     }
   }
   
-}
-
-void turnMotor2(int steps){
-  for (size_t i = 0; i < steps; i++)
-  {
-    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00000011,STEPPER_CS);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00000110,STEPPER_CS);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00001100,STEPPER_CS);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00001001,STEPPER_CS);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-  }
-  
-    
 }
 
 
@@ -392,11 +439,18 @@ int readRotary(int registerA, int NrA, int NrB, int motor, int GPIOAB){
     // If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
     if (bState != aState) { 
       counter ++;
+      if(counter >26){
+        counter = 1;
+      }      
       // turnMotor(10,motor,GPIOAB);
     } else {
       counter --;
+      if(counter<1){
+        counter = 26;
+      }
       // turnMotor(-10,motor,GPIOAB);
     }
+    showPositionLed(counter);
     Serial.print("Position: ");
     Serial.println(counter);
   } 
@@ -434,12 +488,13 @@ void PushButtonRotary(int buttonRegister, int bitNr, Rotor rotor){
     Serial.println(newRotorChoice);
     rotor.rotorChoice = newRotorChoice;
     rotor.vectorRotorA = possibleRotors[rotor.rotorChoice-1];//Haalt nog niet de juiste uit de lijst
-    rotor.vectorRotorB = possibleRotors[rotor.rotorChoice];
+    rotor.vectorRotorB = possibleRotors[rotor.rotorChoice]; 
+      
 
     
     // Serial.println(String(rotorLeft.getVectorA()));
     // Serial.println(rotorLeft.getVectorB());
-
+    rotaryPushed = true;
     Serial.println("rotor= "+String(rotor.rotorChoice));
   }
 }
@@ -674,6 +729,9 @@ void readSwitchboard(){
 
 
 
+
+
+
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////SETUP/////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -691,6 +749,8 @@ void setup() {
   A1LastState = GetBit(ReadSpi(ROTARYREADADDR,GPIOA,ROTARY_CS),1,1);
   A2LastState = GetBit(ReadSpi(ROTARYREADADDR,GPIOA,ROTARY_CS),1,3);
   A3LastState = GetBit(ReadSpi(ROTARYREADADDR,GPIOA,ROTARY_CS),1,5);
+
+  FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
 
 
   SPI.begin();
@@ -710,6 +770,7 @@ WriteSpi(ROTARYWRITEADDR,IODIRA,0b11111111,ROTARY_CS);
 WriteSpi(ROTARYWRITEADDR,IODIRB,0b11111111,ROTARY_CS);
 WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
 WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
+
 
 Serial.println("started rotary read");
 
@@ -732,6 +793,11 @@ while (pressedStartButton == false)
   actualRotor = rotorRight.rotorChoice;
   PushButtonRotary(buttonsRotary,3,rotorRight);
   rotorRight.rotorChoice = actualRotor;
+  if(rotaryPushed){
+    rotaryPushed = false;
+    showLedsRotorChoice(rotorLeft.rotorChoice,rotorMid.rotorChoice,rotorRight.rotorChoice);
+  }
+  
 
   //check if start message button is pressed
 
@@ -740,15 +806,20 @@ while (pressedStartButton == false)
 pressedStartButton = false;
 Serial.println("ended rotary read");
 
+
 //turn the motors
 WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
 WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
 // WriteSpi(STEPPERWRITEADDR,GPIOA,0b00001111,STEPPER_CS);
-Serial.println(rotorLeft.currentPosition);
-// turnMotor2(80);
-turnMotor(512,1,GPIOA);
+Serial.println("current position rotor left"+String(rotorLeft.currentPosition));
+Serial.println("current position rotor mid"+String(rotorMid.currentPosition));
+Serial.println("current position rotor right"+String(rotorRight.currentPosition));
+
+turnMotor(rotorLeft.currentPosition,1,GPIOA);
 turnMotor(rotorMid.currentPosition,2,GPIOA);
 turnMotor(rotorRight.currentPosition,3,GPIOB);
+
+Serial.println("done turning");
 
 
      
@@ -768,7 +839,7 @@ for (size_t i = 0; i < switchboardB.size(); i++)
   Serial.println(switchboardB[i]);
 }
 Serial.println("endedSwitchboard");
-
+ledsMoving();
   
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -795,6 +866,7 @@ Serial.println("endedSwitchboard");
   }
   pressedStopButton = false;
   Serial.println("stopped reading keyboard");
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////SEND MESSAGE//////////////////////////////////

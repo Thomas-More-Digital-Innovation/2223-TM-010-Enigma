@@ -545,10 +545,6 @@ void PushButtonRotary(int buttonRegister, int bitNr, Rotor rotor){
     int newRotorChoice = rotor.buttonPushed();
     Serial.println(newRotorChoice);
     rotor.rotorChoice = newRotorChoice;
-    rotor.vectorRotorA = possibleRotors[rotor.rotorChoice-1];//Haalt nog niet de juiste uit de lijst
-    rotor.vectorRotorB = possibleRotors[rotor.rotorChoice]; 
-      
-
     
     // Serial.println(String(rotorLeft.getVectorA()));
     // Serial.println(rotorLeft.getVectorB());
@@ -879,6 +875,19 @@ turnMotor(rotorLeft.currentPosition,1,GPIOA);
 
 Serial.println("done turning");
 
+//now that the rotors are chosen, assiciate the correct vectors with it
+rotorLeft.vectorRotorA = possibleRotors[(rotorLeft.rotorChoice*2)-2];
+rotorLeft.vectorRotorB = possibleRotors[(rotorLeft.rotorChoice*2)-1]; 
+
+rotorMid.vectorRotorA = possibleRotors[(rotorMid.rotorChoice*2)-2];
+rotorMid.vectorRotorB = possibleRotors[(rotorMid.rotorChoice*2)-1]; 
+
+rotorRight.vectorRotorA = possibleRotors[(rotorRight.rotorChoice*2)-2];
+rotorRight.vectorRotorB = possibleRotors[(rotorRight.rotorChoice*2)-1]; 
+for (size_t i = 0; i < rotorRight.vectorRotorB.size(); i++)
+{
+  Serial.print(" "+String(rotorRight.vectorRotorB[i]));
+}
 
      
 ////////////////////////////////////////////////////////////////////////////////

@@ -202,6 +202,14 @@ int GetBitHigh(int number,int ignoreNumber){
   
 }
 
+int invertBits(int num)
+{
+    for (int i = 0; i < 8; i++)
+       num = (num ^ (1 << i));
+  
+    return num;
+}
+
 void printRegister(int status){
   Serial.println("1: "+ String(GetBit(status,1,1)));
   Serial.println("2: "+ String(GetBit(status,1,2)));
@@ -295,17 +303,17 @@ void getLetterFromInputs(int column, int row){
 }
 
 void turnMotor(int steps, int motor, int GPIOAB){
-  //motor 1 and 2 are on gpioB, 3 on gpioA
-  //motor 2 is attatched to the last 4 bits of the GPIOB => <<4
+  //motor 1 and 2 are on gpioA, 3 on gpioB
+  //motor 2 is attatched to the last 4 bits of the GPIOA => <<4
   int step1 = (motor==1 || motor==3) ? 0b00000011 : 0b00000011<<4;
   int step2 = (motor==1 || motor==3) ? 0b00000110 : 0b00000110<<4;
   int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b00001100<<4;
   int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
 
-  ESP_LOGI(stepper, "step1 %d!", step1);
-  ESP_LOGI(stepper, "step2 %d!", step2);
-  ESP_LOGI(stepper, "step3 %d!", step3);
-  ESP_LOGI(stepper, "step4 %d!", step4);
+  Serial.println("step1 "+String(step1));
+  Serial.println("step2 "+String(step2));
+  Serial.println("step3 "+String(step3));
+  Serial.println("step4 "+String(step4));
 
   if (steps >0){
     for (size_t i = 0; i < steps; i++)
@@ -318,6 +326,10 @@ void turnMotor(int steps, int motor, int GPIOAB){
       vTaskDelay(10/portTICK_PERIOD_MS);
       WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
       vTaskDelay(10/portTICK_PERIOD_MS);
+      Serial.println("step1 "+String(step1));
+      Serial.println("step2 "+String(step2));
+      Serial.println("step3 "+String(step3));
+      Serial.println("step4 "+String(step4));
     }
   } else if (steps <0)
   {
@@ -336,6 +348,22 @@ void turnMotor(int steps, int motor, int GPIOAB){
   
 }
 
+void turnMotor2(int steps){
+  for (size_t i = 0; i < steps; i++)
+  {
+    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00000011,STEPPER_CS);
+    vTaskDelay(10/portTICK_PERIOD_MS);
+    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00000110,STEPPER_CS);
+    vTaskDelay(10/portTICK_PERIOD_MS);
+    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00001100,STEPPER_CS);
+    vTaskDelay(10/portTICK_PERIOD_MS);
+    WriteSpi(STEPPERWRITEADDR,GPIOA,0b00001001,STEPPER_CS);
+    vTaskDelay(10/portTICK_PERIOD_MS);
+  }
+  
+    
+}
+
 
 int readRotary(int registerA, int NrA, int NrB, int motor, int GPIOAB){
   int aState = GetBit(registerA,1,NrA); // Reads the "current" state of the outputA
@@ -346,12 +374,15 @@ int readRotary(int registerA, int NrA, int NrB, int motor, int GPIOAB){
   {
     ALastState = A1LastState;
     counter = rotary1Counter;
+    rotorLeft.currentPosition = counter;
   }else if(NrA == 3){
     ALastState = A2LastState;
     counter = rotary2Counter;
+    rotorMid.currentPosition = counter;
   }else if(NrA ==5){
     ALastState = A3LastState;
     counter = rotary3Counter;
+    rotorRight.currentPosition = counter;
   }
 
 
@@ -415,9 +446,9 @@ void PushButtonRotary(int buttonRegister, int bitNr, Rotor rotor){
 
 void readSwitchboard(){
   int allInput = 0b11111111;
-  int changingOutput = 0b11111110;
+  int changedOutput = 0b11111110;
   int outputLevel = 0b00000001;
-  int changedOutput;
+  // int changedOutput;
   int firstLetter,secondLetter;
 
   int reg3A,reg3B,reg4A,reg4B;
@@ -430,12 +461,19 @@ void readSwitchboard(){
   for (size_t i = 0; i < 8 ; i++)
   {
     //this function shifts the position of the 0(output) in the byte 1 to the left
-    changedOutput = rotl(changingOutput,i);
+    changedOutput = rotl(changedOutput,i);
+    Serial.println(changedOutput);
     //set only 1 as output, all the rest are inputs
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRA,changedOutput,SWITCHBOARD1_CS);// one after the other the pins become an output
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
+
+    int inverseChangedOutput = invertBits(changedOutput);
+
+    //set the inverse from changed output(vb11111110) in GPIOA => 00000001
+    //so now only 1 pin is high
+    WriteSpi(SWITCHBOARD1WRITEADDR,GPIOA,inverseChangedOutput,SWITCHBOARD1_CS);
 
     //read all the switchboard registers
     reg3A = ReadSpi(SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
@@ -444,7 +482,7 @@ void readSwitchboard(){
     reg4A = ReadSpi(SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
     reg4B = ReadSpi(SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
 
-    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+    highBitOutput = GetBitHigh(inverseChangedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
 
     if(GetBitHigh(reg3A,highBitOutput)){//if there wasn't a high bit somewhere this function would return 0 and the if wouln't be true
       highBitMatch = GetBitHigh(reg3A,highBitOutput);//look for high input but ignore the high output
@@ -478,12 +516,15 @@ void readSwitchboard(){
   //spi3 with register B changes output
   for (size_t i = 0; i < 8 ; i++)
   {
-    changedOutput = rotl(changingOutput,i);
+    changedOutput = rotl(changedOutput,i);
     //set only 1 as output
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRA,allInput,SWITCHBOARD1_CS);
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRB,changedOutput,SWITCHBOARD1_CS);// one after the other the pins become an output
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
+
+    int inverseChangedOutput = invertBits(changedOutput);
+    WriteSpi(SWITCHBOARD1WRITEADDR,GPIOB,inverseChangedOutput,SWITCHBOARD1_CS);
 
     //read all the switchboard registers
     reg3A = ReadSpi(SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
@@ -492,7 +533,7 @@ void readSwitchboard(){
     reg4A = ReadSpi(SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
     reg4B = ReadSpi(SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
 
-    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+    highBitOutput = GetBitHigh(inverseChangedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
 
     if(GetBitHigh(reg3A)){
       highBitMatch = GetBitHigh(reg3A);//look for high input but ignore the high output
@@ -527,12 +568,15 @@ void readSwitchboard(){
   //spi4 with register A changes output
   for (size_t i = 0; i < 8 ; i++)
   {
-    changedOutput = rotl(changingOutput,i);
+    changedOutput = rotl(changedOutput,i);
     //set only 1 as output
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRA,allInput,SWITCHBOARD1_CS);
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);// one after the other the pins become an output
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRA,changedOutput,SWITCHBOARD2_CS);
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,allInput,SWITCHBOARD2_CS);
+
+    int inverseChangedOutput = invertBits(changedOutput);
+    WriteSpi(SWITCHBOARD2WRITEADDR,GPIOA,inverseChangedOutput,SWITCHBOARD2_CS);
 
     //read all the switchboard registers
     reg3A = ReadSpi(SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
@@ -541,7 +585,7 @@ void readSwitchboard(){
     reg4A = ReadSpi(SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
     reg4B = ReadSpi(SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
 
-    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+    highBitOutput = GetBitHigh(inverseChangedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
 
     if(GetBitHigh(reg3A)){
       highBitMatch = GetBitHigh(reg3A);//look for high input but ignore the high output
@@ -576,12 +620,15 @@ void readSwitchboard(){
   //spi4 with register B changes output
   for (size_t i = 0; i < 8 ; i++)
   {
-    changedOutput = rotl(changingOutput,i);
+    changedOutput = rotl(changedOutput,i);
     //set only 1 as output
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRA,allInput,SWITCHBOARD1_CS);
     WriteSpi(SWITCHBOARD1WRITEADDR,IODIRB,allInput,SWITCHBOARD1_CS);// one after the other the pins become an output
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRA,allInput,SWITCHBOARD2_CS);
     WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,changedOutput,SWITCHBOARD2_CS);
+
+    int inverseChangedOutput = invertBits(changedOutput);
+    WriteSpi(SWITCHBOARD2WRITEADDR,GPIOB,inverseChangedOutput,SWITCHBOARD2_CS);
 
     //read all the switchboard registers
     reg3A = ReadSpi(SWITCHBOARD1READADDR,GPIOA,SWITCHBOARD1_CS);
@@ -590,7 +637,7 @@ void readSwitchboard(){
     reg4A = ReadSpi(SWITCHBOARD2READADDR,GPIOA,SWITCHBOARD2_CS);
     reg4B = ReadSpi(SWITCHBOARD2READADDR,GPIOB,SWITCHBOARD2_CS);
 
-    highBitOutput = GetBitHigh(changedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
+    highBitOutput = GetBitHigh(inverseChangedOutput);//need to know which bit was set to high so it can be ignored when searching for the high input
     
    
     if(GetBitHigh(reg3A)){
@@ -646,15 +693,6 @@ void setup() {
   A3LastState = GetBit(ReadSpi(ROTARYREADADDR,GPIOA,ROTARY_CS),1,5);
 
 
-
-
-
-
-
-
-
-
-
   SPI.begin();
 }
 ///////////////////////////////////////////////////////////////////////////////////
@@ -702,17 +740,34 @@ while (pressedStartButton == false)
 pressedStartButton = false;
 Serial.println("ended rotary read");
 
+//turn the motors
+WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
+WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
+// WriteSpi(STEPPERWRITEADDR,GPIOA,0b00001111,STEPPER_CS);
+Serial.println(rotorLeft.currentPosition);
+// turnMotor2(80);
+turnMotor(512,1,GPIOA);
+turnMotor(rotorMid.currentPosition,2,GPIOA);
+turnMotor(rotorRight.currentPosition,3,GPIOB);
+
 
      
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////SWITCHBOARD READ////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-// readSwitchboard();
-// for (size_t i = 0; i < switchboardA.size(); i++)
-// {
-//   Serial.println(switchboardA[i]);
-//   Serial.println(switchboardB[i]);
-// }
+
+Serial.println("startedSwitchboard");
+readSwitchboard();
+for (size_t i = 0; i < switchboardA.size(); i++)
+{
+  Serial.println(switchboardA[i]);
+}
+Serial.println("B vector");
+for (size_t i = 0; i < switchboardB.size(); i++)
+{
+  Serial.println(switchboardB[i]);
+}
+Serial.println("endedSwitchboard");
 
   
 

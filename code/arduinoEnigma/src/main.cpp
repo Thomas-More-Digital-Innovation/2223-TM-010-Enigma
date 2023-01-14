@@ -115,6 +115,8 @@ char keyboardPoints[4][7] = {{'o','i','u','z','t','r','e'}, {'k','j','h','g','f'
 #define STEPPERWRITEADDR 0x42
 #define STEPPERREADADDR 0x43
 
+#define STEPSIZELETTER 5
+
 //switchboard
 #define SWITCHBOARD1_CS 12
 #define SWITCHBOARD2_CS 27
@@ -300,6 +302,64 @@ int ReadSpi(int addresExpander,int addresRegister,int cs_pin){
   digitalWrite(cs_pin, HIGH);
   return returnFromRegister;
 }
+void turnMotor(int steps, int motor, int GPIOAB){
+  //motor 1 and 2 are on gpioA, 3 on gpioB
+  //motor 2 is attatched to the last 4 bits of the GPIOA => <<4
+  int step1 = (motor==1 || motor==3) ? 0b00000011 : 0b00000011<<4;
+  int step2 = (motor==1 || motor==3) ? 0b00000110 : 0b00000110<<4;
+  int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b00001100<<4;
+  int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
+  int limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
+  Serial.println("limiter switch: "+String(limiterSwitch));
+
+  // Serial.println("step1 "+String(step1));
+  // Serial.println("step2 "+String(step2));
+  // Serial.println("step3 "+String(step3));
+  // Serial.println("step4 "+String(step4));
+
+  if (steps >0){
+    for (size_t i = 0; i < steps*STEPSIZELETTER; i++)
+    { if (limiterSwitch)
+      {
+        break;
+      }
+    
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step1,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step2,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step3,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
+      Serial.println("limiter switch: "+String(limiterSwitch));
+      // Serial.println("step1 "+String(step1));
+      // Serial.println("step2 "+String(step2));
+      // Serial.println("step3 "+String(step3));
+      // Serial.println("step4 "+String(step4));
+    }
+  } else if (steps <0)
+  {
+    for (int j = 0; j > steps*STEPSIZELETTER; j--)
+    {
+      if (limiterSwitch)
+      {
+        break;
+      }
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step3,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step2,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(STEPPERWRITEADDR,GPIOAB,step1,STEPPER_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
+    }
+  }
+  
+}
 
 //keyboard functions
 int readButtonInputs(){
@@ -319,13 +379,48 @@ int readButtonInputs(){
     gpioa_state = ReadSpi(KEYBOARDREADADDR, GPIOA,KEYBOARD_CS);
     vTaskDelay(10/portTICK_PERIOD_MS);
   }
-  global_state = gpioa_state;
+  global_state = gpioa_state;  
+  
   return gpioa_stateOriginal;//when the button is released return what was in the register
 }
 
 void setButtonOutput(int binairyNumber){
   WriteSpi(KEYBOARDWRITEADDR,GPIOB,binairyNumber,KEYBOARD_CS);  
   vTaskDelay(10/portTICK_PERIOD_MS);
+}
+
+void turnRotorWithKeyboard(){
+  turnMotor(1,3,GPIOB);
+  rotorRight.currentPosition += 1;
+  if (rotorRight.currentPosition >26)
+  {
+    rotorRight.currentPosition = 1;
+  }
+  
+  Serial.println("turning rotorRight 1 pos");
+  Serial.println("current position "+String(rotorRight.currentPosition)+" position tot turn left rotor "+String(rotorRight.positionTurnRotorToLeft));
+  if (rotorRight.currentPosition == rotorRight.positionTurnRotorToLeft)
+  {
+    turnMotor(1,2,GPIOA);
+    rotorMid.currentPosition += 1;
+    if (rotorMid.currentPosition >26)
+    {
+      rotorMid.currentPosition = 1;
+    }
+    
+    Serial.println("turning rotorMid 1 pos");
+  }
+  if (rotorMid.currentPosition == rotorMid.positionTurnRotorToLeft)
+  {
+    turnMotor(1,1,GPIOA);
+    rotorLeft.currentPosition += 1;
+    if (rotorLeft.currentPosition>26)
+    {
+      rotorLeft.currentPosition = 1;
+    }
+    
+    Serial.println("turning rotorLeft 1 pos");
+  }
 }
 
 
@@ -336,80 +431,43 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][0];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   } else if (column == 2)
   {
     letter = keyboardPoints[row][1];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   } else if (column == 4)
   {
     letter = keyboardPoints[row][2];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   } else if (column == 8)
   {
     letter = keyboardPoints[row][3];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   }else if (column == 16)
   {
     letter = keyboardPoints[row][4];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   }else if (column == 32)
   {
     letter = keyboardPoints[row][5];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   }else if (column == 64)
   {
     letter = keyboardPoints[row][6];
     Serial.println("letter: "+ letter);
+    turnRotorWithKeyboard();
   }
   
   
 }
 
-void turnMotor(int steps, int motor, int GPIOAB){
-  //motor 1 and 2 are on gpioA, 3 on gpioB
-  //motor 2 is attatched to the last 4 bits of the GPIOA => <<4
-  int step1 = (motor==1 || motor==3) ? 0b00000011 : 0b00000011<<4;
-  int step2 = (motor==1 || motor==3) ? 0b00000110 : 0b00000110<<4;
-  int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b00001100<<4;
-  int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
 
-  // Serial.println("step1 "+String(step1));
-  // Serial.println("step2 "+String(step2));
-  // Serial.println("step3 "+String(step3));
-  // Serial.println("step4 "+String(step4));
-
-  if (steps >0){
-    for (size_t i = 0; i < steps; i++)
-    {
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step1,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step2,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step3,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      // Serial.println("step1 "+String(step1));
-      // Serial.println("step2 "+String(step2));
-      // Serial.println("step3 "+String(step3));
-      // Serial.println("step4 "+String(step4));
-    }
-  } else if (steps <0)
-  {
-    for (int j = 0; j > steps; j--)
-    {
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step3,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step2,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step1,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-    }
-  }
-  
-}
 
 
 int readRotary(int registerA, int NrA, int NrB, int motor, int GPIOAB){
@@ -816,8 +874,8 @@ Serial.println("current position rotor mid"+String(rotorMid.currentPosition));
 Serial.println("current position rotor right"+String(rotorRight.currentPosition));
 
 turnMotor(rotorLeft.currentPosition,1,GPIOA);
-turnMotor(rotorMid.currentPosition,2,GPIOA);
-turnMotor(rotorRight.currentPosition,3,GPIOB);
+// turnMotor(rotorMid.currentPosition,2,GPIOA);
+// turnMotor(rotorRight.currentPosition,3,GPIOB);
 
 Serial.println("done turning");
 
@@ -871,7 +929,7 @@ ledsMoving();
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////SEND MESSAGE//////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-  vTaskDelay(10000/portTICK_PERIOD_MS);
+  vTaskDelay(1000/portTICK_PERIOD_MS);
 
 
 

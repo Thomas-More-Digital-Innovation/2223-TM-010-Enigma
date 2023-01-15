@@ -3,6 +3,7 @@
 #include <vector>
 #include <FastLED.h>
 #include "WiFi.h"
+#include <PubSubClient.h>
 
 using namespace std;
 
@@ -62,6 +63,10 @@ class Rotor{
 //wifi
 const char* ssid = "embedded";
 const char* password =  "IoTembedded";
+//mqtt
+const char* mqtt_server = "broker.hivemq.com";
+WiFiClient espWifiClient;
+PubSubClient client(espWifiClient);
 
 //ledstrip
 #define NUM_LEDS 26
@@ -281,8 +286,23 @@ void ledsMoving(){
     FastLED.show();
     vTaskDelay(50/portTICK_PERIOD_MS);
   }
-  FastLED.clear(true);
-  
+  FastLED.clear(true); 
+}
+
+void wifiLeds(){
+  FastLED.clear();
+  leds[0] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[1] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[2] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+
 }
 
 void printRegister(int status){
@@ -325,12 +345,42 @@ void wifiConnect(){
     while (WiFi.status() != WL_CONNECTED && GetBit(ReadSpi(ROTARYREADADDR,GPIOB,ROTARY_CS),1,5)) { 
     vTaskDelay(500/portTICK_PERIOD_MS);   
     Serial.println("Connecting to WiFi..");
+    wifiLeds();
     }
     Serial.println("Connected to the WiFi network");
   }else{
     Serial.println("not connecting because switch is off");
   }
   
+}
+
+void callback(char* topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+  
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+}
+//https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+void mqttMessage(){
+  if(WiFi.status()==WL_CONNECTED){
+    client.setServer(mqtt_server, 1883);
+    client.setCallback(callback);
+    client.loop();
+
+    int temperature = 18;
+    char tempString[8];
+    dtostrf(temperature, 1, 2, tempString);
+    Serial.print("Temperature: ");
+    Serial.println(tempString);
+    client.publish("Hanne/enigmaTest", tempString);
+    Serial.println("published MQTT");
+  }
 }
 
 
@@ -988,6 +1038,7 @@ ledsMoving();
 ////////////////////////////////////////////////////////////////////////////////
   vTaskDelay(1000/portTICK_PERIOD_MS);
   wifiConnect();
+  mqttMessage();
 
 
 

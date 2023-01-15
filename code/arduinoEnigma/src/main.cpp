@@ -10,15 +10,17 @@ class Rotor{
     int currentPosition;
     int positionTurnRotorToLeft;
     int rotorChoice;
+    int previousPositionSetup;
     vector<unsigned short int> vectorRotorA;
     vector<unsigned short int> vectorRotorB;
     //constructor
-    Rotor(int currentPosition,int positionTurnRotorToLeft, int rotorChoice,vector<unsigned short int> vectorRotorA,vector<unsigned short int> vectorRotorB){
+    Rotor(int currentPosition,int positionTurnRotorToLeft, int rotorChoice,int previousPositionSetup,vector<unsigned short int> vectorRotorA,vector<unsigned short int> vectorRotorB){
       this->currentPosition = currentPosition;
       this->positionTurnRotorToLeft = positionTurnRotorToLeft;
       this->rotorChoice = rotorChoice;
       this->vectorRotorA = vectorRotorA;
       this->vectorRotorB = vectorRotorB;
+      this->previousPositionSetup = previousPositionSetup;
     }
     
 
@@ -163,9 +165,9 @@ int ALastState;
 bool pressedStopButton = false;
 bool pressedStartButton = false;
 
-Rotor rotorLeft(1,7,1,possibleRotors[0],possibleRotors[1]);
-Rotor rotorMid(1,8,2,possibleRotors[2],possibleRotors[3]);
-Rotor rotorRight(1,8,3,possibleRotors[4],possibleRotors[5]);
+Rotor rotorLeft(1,7,1,1,possibleRotors[0],possibleRotors[1]);
+Rotor rotorMid(1,8,2,1,possibleRotors[2],possibleRotors[3]);
+Rotor rotorRight(1,8,3,1,possibleRotors[4],possibleRotors[5]);
 
 int actualRotor;
 int rotaryPushed = false;
@@ -271,7 +273,7 @@ void ledsMoving(){
     FastLED.show();
     vTaskDelay(50/portTICK_PERIOD_MS);
   }
-  FastLED.clear();
+  FastLED.clear(true);
   
 }
 
@@ -311,11 +313,6 @@ void turnMotor(int steps, int motor, int GPIOAB){
   int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
   int limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
   Serial.println("limiter switch: "+String(limiterSwitch));
-
-  // Serial.println("step1 "+String(step1));
-  // Serial.println("step2 "+String(step2));
-  // Serial.println("step3 "+String(step3));
-  // Serial.println("step4 "+String(step4));
 
   if (steps >0){
     for (size_t i = 0; i < steps*STEPSIZELETTER; i++)
@@ -781,6 +778,13 @@ void readSwitchboard(){
 
 }
 
+void setupTurnMotor(int previousPosition, int currentPosition, int motor, int GPIOAB){
+  int difference = currentPosition - previousPosition;
+  Serial.println("motor "+String(motor)+" previous "+String(previousPosition)+" currentPosition "+String(currentPosition)+" stepps "+String(difference));
+  turnMotor(difference,motor,GPIOAB);
+
+}
+
 
 
 
@@ -808,6 +812,14 @@ void setup() {
 
 
   SPI.begin();
+
+  WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
+  WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
+
+  //on startup turn all rotors to A
+  turnMotor(8000,1,GPIOA);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
+  // turnMotor(8000,2,GPIOA);
+  // turnMotor(8000,3,GPIOB);
 }
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////MAIN//////////////////////////////////////
@@ -869,9 +881,9 @@ Serial.println("current position rotor left"+String(rotorLeft.currentPosition));
 Serial.println("current position rotor mid"+String(rotorMid.currentPosition));
 Serial.println("current position rotor right"+String(rotorRight.currentPosition));
 
-turnMotor(rotorLeft.currentPosition,1,GPIOA);
-// turnMotor(rotorMid.currentPosition,2,GPIOA);
-// turnMotor(rotorRight.currentPosition,3,GPIOB);
+setupTurnMotor(rotorLeft.previousPositionSetup,rotorLeft.currentPosition,1,GPIOA);
+setupTurnMotor(rotorMid.previousPositionSetup,rotorMid.currentPosition,2,GPIOA);
+setupTurnMotor(rotorRight.previousPositionSetup,rotorRight.currentPosition,3,GPIOA);
 
 Serial.println("done turning");
 
@@ -939,6 +951,14 @@ ledsMoving();
 //////////////////////////////////SEND MESSAGE//////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
   vTaskDelay(1000/portTICK_PERIOD_MS);
+
+
+
+
+
+  rotorLeft.previousPositionSetup = rotorLeft.currentPosition;
+  rotorMid.previousPositionSetup = rotorMid.currentPosition;
+  rotorRight.previousPositionSetup = rotorRight.currentPosition;
 
 
 

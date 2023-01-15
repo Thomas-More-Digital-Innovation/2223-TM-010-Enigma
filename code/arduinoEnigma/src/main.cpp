@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <vector>
 #include <FastLED.h>
+#include "WiFi.h"
 
 using namespace std;
 
@@ -57,6 +58,10 @@ class Rotor{
 
 
 };
+
+//wifi
+const char* ssid = "embedded";
+const char* password =  "IoTembedded";
 
 //ledstrip
 #define NUM_LEDS 26
@@ -241,6 +246,9 @@ unsigned short int get_index(vector<unsigned short int> vector, unsigned short i
     }
 }
 
+
+
+
 //led functions
 void showPositionLed(int position){
   FastLED.clear();
@@ -304,6 +312,29 @@ int ReadSpi(int addresExpander,int addresRegister,int cs_pin){
   digitalWrite(cs_pin, HIGH);
   return returnFromRegister;
 }
+
+
+void wifiConnect(){
+  //wifi switch is on this register
+  WriteSpi(ROTARYWRITEADDR,IODIRB,0b11111111,ROTARY_CS);
+  //check if wifi switch is on
+  if(GetBit(ReadSpi(ROTARYREADADDR,GPIOB,ROTARY_CS),1,5)){
+    //make wifi connection
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED && GetBit(ReadSpi(ROTARYREADADDR,GPIOB,ROTARY_CS),1,5)) { 
+    vTaskDelay(500/portTICK_PERIOD_MS);   
+    Serial.println("Connecting to WiFi..");
+    }
+    Serial.println("Connected to the WiFi network");
+  }else{
+    Serial.println("not connecting because switch is off");
+  }
+  
+}
+
+
+
 void turnMotor(int steps, int motor, int GPIOAB){
   //motor 1 and 2 are on gpioA, 3 on gpioB
   //motor 2 is attatched to the last 4 bits of the GPIOA => <<4
@@ -816,6 +847,11 @@ void setup() {
   WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
   WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
 
+  
+  wifiConnect();
+
+  
+
   //on startup turn all rotors to A
   turnMotor(8000,1,GPIOA);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
   // turnMotor(8000,2,GPIOA);
@@ -951,6 +987,7 @@ ledsMoving();
 //////////////////////////////////SEND MESSAGE//////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
   vTaskDelay(1000/portTICK_PERIOD_MS);
+  wifiConnect();
 
 
 

@@ -25,10 +25,6 @@ class Rotor{
       this->previousPositionSetup = previousPositionSetup;
     }
     
-
-
-
-
     //methods
     int buttonPushed(){
       
@@ -366,11 +362,31 @@ void callback(char* topic, byte* message, unsigned int length) {
   }
   Serial.println();
 }
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("trying to connect to mqtt broker");
+    
+    if (client.connect("esp32EnigmaHanne")) {
+      Serial.println("connected");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
+  }
+}
+
 //https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
 void mqttMessage(){
   if(WiFi.status()==WL_CONNECTED){
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
+    if (!client.connected()) {
+    reconnect();
+    }
     client.loop();
 
     int temperature = 18;
@@ -378,7 +394,7 @@ void mqttMessage(){
     dtostrf(temperature, 1, 2, tempString);
     Serial.print("Temperature: ");
     Serial.println(tempString);
-    client.publish("Hanne/enigmaTest", tempString);
+    client.publish("topic/enigmaThomasMoreHanne", tempString);
     Serial.println("published MQTT");
   }
 }
@@ -395,8 +411,8 @@ void turnMotor(int steps, int motor, int GPIOAB){
   int limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
   Serial.println("limiter switch: "+String(limiterSwitch));
 
-  if (steps >0){
-    for (size_t i = 0; i < steps*STEPSIZELETTER; i++)
+  if (steps <0){
+    for (size_t i = 0; i > steps*STEPSIZELETTER; i--)
     { if (limiterSwitch)
       {
         break;
@@ -417,9 +433,9 @@ void turnMotor(int steps, int motor, int GPIOAB){
       // Serial.println("step3 "+String(step3));
       // Serial.println("step4 "+String(step4));
     }
-  } else if (steps <0)
+  } else if (steps >0)
   {
-    for (int j = 0; j > steps*STEPSIZELETTER; j--)
+    for (int j = 0; j < steps*STEPSIZELETTER; j++)
     {
       if (limiterSwitch)
       {
@@ -904,8 +920,8 @@ void setup() {
 
   //on startup turn all rotors to A
   turnMotor(8000,1,GPIOA);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
-  // turnMotor(8000,2,GPIOA);
-  // turnMotor(8000,3,GPIOB);
+  turnMotor(8000,2,GPIOA);
+  turnMotor(8000,3,GPIOB);
 }
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////MAIN//////////////////////////////////////

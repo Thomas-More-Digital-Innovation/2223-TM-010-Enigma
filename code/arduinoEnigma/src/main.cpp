@@ -69,14 +69,6 @@ PubSubClient client(espWifiClient);
 #define LED_PIN 21
 CRGB leds[NUM_LEDS];
 
-vector<unsigned short int> vector_rotor_lefta;
-vector<unsigned short int> vector_rotor_leftb;
-
-vector<unsigned short int> vector_rotor_mida;
-vector<unsigned short int> vector_rotor_midb;
-
-vector<unsigned short int> vector_rotor_righta;
-vector<unsigned short int> vector_rotor_rightb;
 
 vector<unsigned short int> rotor1a({1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
 vector<unsigned short int> rotor1b({16,5,12,26,7,1,11,15,24,22,2,17,14,8,19,20,18,21,3,23,25,10,4,6,13,9});
@@ -97,6 +89,8 @@ vector<unsigned short int> reflectora({8,5,6,16,7,9,2,26,10,14,25,12,15});
 vector<unsigned short int> reflectorb({20,21,11,1,13,24,3,4,22,18,23,17,19});
 
 vector<vector<unsigned short int>> possibleRotors{rotor1a,rotor1b,rotor2a,rotor2b,rotor3a,rotor3b,rotor4a,rotor4b,rotor5a,rotor5b};
+
+vector<unsigned short int> ledSequence({17,23,5,18,20,26,21,9,15,11,10,8,7,6,4,19,1,16,25,24,3,22,2,14,13,12});
 
 vector<unsigned short int> keyboardSequence({17,23,5,18,20,26,21,9,15,1,19,4,6,7,8,10,11,16,25,24,3,22,2,14,13,12});
 vector<unsigned short int> keyboardTopLayer({17,23,5,18,20,26,21,9,15});
@@ -264,11 +258,12 @@ void showPositionLed(int position){
 }
 
 void showLedsRotorChoice(int choiceLeft, int choiceMid, int choiceRight){
+  
   FastLED.clear();
 
-  leds[choiceLeft-1] = CRGB::White;
-  leds[choiceMid+8] = CRGB::White;
-  leds[choiceRight+16] = CRGB::White;
+  leds[choiceLeft+16] = CRGB::White;
+  leds[-choiceMid+17] = CRGB::White;
+  leds[choiceRight-1] = CRGB::White;
 
   FastLED.show();
 
@@ -484,7 +479,7 @@ void setButtonOutput(int binairyNumber){
 }
 
 void turnRotorWithKeyboard(){
-  turnMotor(1,3,GPIOB);
+  // turnMotor(1,3,GPIOB);
   rotorRight.currentPosition += 1;
   if (rotorRight.currentPosition >26)
   {
@@ -495,7 +490,7 @@ void turnRotorWithKeyboard(){
   Serial.println("current position "+String(rotorRight.currentPosition)+" position tot turn left rotor "+String(rotorRight.positionTurnRotorToLeft));
   if (rotorRight.currentPosition == rotorRight.positionTurnRotorToLeft)
   {
-    turnMotor(1,2,GPIOA);
+    // turnMotor(1,2,GPIOA);
     rotorMid.currentPosition += 1;
     if (rotorMid.currentPosition >26)
     {
@@ -506,7 +501,7 @@ void turnRotorWithKeyboard(){
   }
   if (rotorMid.currentPosition == rotorMid.positionTurnRotorToLeft)
   {
-    turnMotor(1,1,GPIOA);
+    // turnMotor(1,1,GPIOA);
     rotorLeft.currentPosition += 1;
     if (rotorLeft.currentPosition>26)
     {
@@ -589,18 +584,18 @@ int readRotary(int registerA, int NrA, int NrB, int motor, int GPIOAB){
   // If the previous and the current state of the outputA are different, that means a Pulse has occured
   if (aState < ALastState){     
     // If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
-    if (bState != aState) { 
+    if (bState == aState) { 
       counter ++;
       if(counter >26){
         counter = 1;
       }      
-      // turnMotor(10,motor,GPIOAB);
+
     } else {
       counter --;
       if(counter<1){
         counter = 26;
       }
-      // turnMotor(-10,motor,GPIOAB);
+
     }
     showPositionLed(counter);
     Serial.print("Position: ");
@@ -878,7 +873,7 @@ void readSwitchboard(){
 void setupTurnMotor(int previousPosition, int currentPosition, int motor, int GPIOAB){
   int difference = currentPosition - previousPosition;
   Serial.println("motor "+String(motor)+" previous "+String(previousPosition)+" currentPosition "+String(currentPosition)+" stepps "+String(difference));
-  turnMotor(difference,motor,GPIOAB);
+  // turnMotor(difference,motor,GPIOAB);
 
 }
 
@@ -914,14 +909,14 @@ void setup() {
   WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
 
   
-  wifiConnect();
+  // wifiConnect();
 
   
 
   //on startup turn all rotors to A
-  turnMotor(8000,1,GPIOA);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
-  turnMotor(8000,2,GPIOA);
-  turnMotor(8000,3,GPIOB);
+  // turnMotor(8000,1,GPIOA);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
+  // turnMotor(8000,2,GPIOA);
+  // turnMotor(8000,3,GPIOB);
 }
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////MAIN//////////////////////////////////////

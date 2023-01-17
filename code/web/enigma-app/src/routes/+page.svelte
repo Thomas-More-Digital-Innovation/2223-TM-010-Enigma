@@ -1,20 +1,16 @@
 <script>
-	import type { PageData } from './$types';
-
-    export let data: PageData;
-
+    /** @type {import('./$types').PageData} */
+    export let data;
 </script>
 
-<main>
+<div>
     <h1>Enimga</h1>
     <h2>Last encoded message:</h2>
     <p id="message">{data.messageFromEnigma}</p>
-
-</main>
-
+</div>
 
 <style>
-    main{
+    main {
         text-align: center;
     }
 </style>

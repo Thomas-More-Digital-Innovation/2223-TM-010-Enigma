@@ -90,9 +90,9 @@ vector<unsigned short int> reflectorb({20,21,11,1,13,24,3,4,22,18,23,17,19});
 
 vector<vector<unsigned short int>> possibleRotors{rotor1a,rotor1b,rotor2a,rotor2b,rotor3a,rotor3b,rotor4a,rotor4b,rotor5a,rotor5b};
 
-vector<unsigned short int> ledSequence({17,23,5,18,20,26,21,9,15,11,10,8,7,6,4,19,1,16,25,24,3,22,2,14,13,12});
+vector<unsigned short int> ledSequence({16,25,24,3,22,2,14,13,12,11,10,8,7,6,4,19,1,17,23,5,18,20,26,21,9,15});
 
-vector<unsigned short int> keyboardSequence({17,23,5,18,20,26,21,9,15,1,19,4,6,7,8,10,11,16,25,24,3,22,2,14,13,12});
+vector<unsigned short int> keyboardSequence({16,25,24,3,22,2,14,13,12,1,19,4,6,7,8,10,11,17,23,5,18,20,26,21,9,15});
 vector<unsigned short int> keyboardTopLayer({17,23,5,18,20,26,21,9,15});
 vector<unsigned short int> keyboardMidLayer({1,19,4,6,7,8,10,11});
 vector<unsigned short int> keyboardBottomLayer({16,25,24,3,22,2,14,13,12});
@@ -247,7 +247,7 @@ unsigned short int get_index(vector<unsigned short int> vector, unsigned short i
 //led functions
 void showPositionLed(int position){
   FastLED.clear();
-  int index = get_index(keyboardSequence,position);
+  int index = get_index(ledSequence,position);
   if (index>=0 && index<=26)
   {
     leds[index] = CRGB::White;

@@ -3,7 +3,7 @@ import status from 'http-status';
 
 export const POST: RequestHandler = async ({ params, request, platform }) => {
 	const messageFromEnigma = params.enigmaMessage;//haalt message uit url
-  var messageP = document.getElementById('message');
+  const messageP = document.getElementById('message');
   messageP.textContent = "test";
   console.log(messageFromEnigma);
   console.log(typeof messageFromEnigma);

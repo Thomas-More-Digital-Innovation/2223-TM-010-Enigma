@@ -92,6 +92,8 @@ vector<vector<unsigned short int>> possibleRotors{rotor1a,rotor1b,rotor2a,rotor2
 
 vector<unsigned short int> ledSequence({16,25,24,3,22,2,14,13,12,11,10,8,7,6,4,19,1,17,23,5,18,20,26,21,9,15});
 
+vector<unsigned short int> switchboardNumberChange({17,23,5,1,19,4,16,25,24,18,20,26,6,7,8,3,22,2,21,9,15,10,11,13,14,12});
+
 vector<unsigned short int> keyboardSequence({16,25,24,3,22,2,14,13,12,1,19,4,6,7,8,10,11,17,23,5,18,20,26,21,9,15});
 vector<unsigned short int> keyboardTopLayer({17,23,5,18,20,26,21,9,15});
 vector<unsigned short int> keyboardMidLayer({1,19,4,6,7,8,10,11});
@@ -707,6 +709,8 @@ void readSwitchboard(){
 
     if (highBitMatch)
     {
+      firstLetter = switchboardNumberChange[firstLetter-1];
+      secondLetter = switchboardNumberChange[secondLetter-1];
       switchboardA.push_back(firstLetter);
       switchboardB.push_back(secondLetter);
     }
@@ -758,6 +762,8 @@ void readSwitchboard(){
 
     if (highBitMatch)
     {
+      firstLetter = switchboardNumberChange[firstLetter-1];
+      secondLetter = switchboardNumberChange[secondLetter-1];
       switchboardA.push_back(firstLetter);
       switchboardB.push_back(secondLetter);
     }
@@ -810,6 +816,8 @@ void readSwitchboard(){
 
     if (highBitMatch)
     {
+      firstLetter = switchboardNumberChange[firstLetter-1];
+      secondLetter = switchboardNumberChange[secondLetter-1];
       switchboardA.push_back(firstLetter);
       switchboardB.push_back(secondLetter);
     }
@@ -863,6 +871,8 @@ void readSwitchboard(){
 
     if (highBitMatch)
     {
+      firstLetter = switchboardNumberChange[firstLetter-1];
+      secondLetter = switchboardNumberChange[secondLetter-1];
       switchboardA.push_back(firstLetter);
       switchboardB.push_back(secondLetter);
     }
@@ -1005,14 +1015,17 @@ for (size_t i = 0; i < rotorRight.vectorRotorB.size(); i++)
 
 Serial.println("startedSwitchboard");
 readSwitchboard();
+Serial.println("A vector");
 for (size_t i = 0; i < switchboardA.size(); i++)
 {
-  Serial.println(switchboardA[i]);
+  Serial.print(switchboardA[i]);
+  Serial.print(",");
 }
 Serial.println("B vector");
 for (size_t i = 0; i < switchboardB.size(); i++)
 {
-  Serial.println(switchboardB[i]);
+  Serial.print(switchboardB[i]);
+  Serial.print(",");
 }
 Serial.println("endedSwitchboard");
 ledsMoving();

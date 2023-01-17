@@ -3,10 +3,10 @@ import status from 'http-status';
 
 export const POST: RequestHandler = async ({ params, request, platform }) => {
 	const messageFromEnigma = params.enigmaMessage;//haalt message uit url
-  var messageP = document.getElementById('message');
-  messageP.textContent = "test";
-  console.log(messageFromEnigma);
-  console.log(typeof messageFromEnigma);
+  // const messageP = document.getElementById('message');
+  // messageP.textContent = "test";
+  // console.log(messageFromEnigma);
+  // console.log(typeof messageFromEnigma);
   //checkt of er een api key is
   if (!request.headers.has('x-api-key')) throw error(status.BAD_REQUEST, 'Missing X-API-Key'); 
   //checkt of api key juist is 

@@ -4,6 +4,8 @@
 #include <FastLED.h>
 #include "WiFi.h"
 #include <PubSubClient.h>
+#include <HTTPClient.h>//for the post
+#include <ArduinoJson.h>//for the post
 
 using namespace std;
 
@@ -64,6 +66,11 @@ const char* password =  "IoTembedded";
 const char* mqtt_server = "broker.hivemq.com";
 WiFiClient espWifiClient;
 PubSubClient client(espWifiClient);
+//api
+DynamicJsonDocument doc(1024);//for the post response
+
+String originalUrl = "https://2223-tm-010-enigma.pages.dev/api/";
+String xApiKey = "EnigmaAPITokenTest";
 
 //ledstrip
 #define NUM_LEDS 26
@@ -397,6 +404,18 @@ void mqttMessage(){
     client.publish("topic/enigmaThomasMoreHanne", wordChar);
     Serial.println("published MQTT");
   }
+}
+
+void postMessage(){
+  String fullUrl = originalUrl+encodedWord;
+  HTTPClient http;   
+    
+  http.begin(fullUrl);  
+  //set the headers
+  http.addHeader("Content-Type", "application/json");             
+  http.addHeader("x-api-key", xApiKey);
+  
+  int httpResponseCode = http.POST("post from enigma");
 }
 
 
@@ -1066,6 +1085,7 @@ ledsMoving();
   vTaskDelay(1000/portTICK_PERIOD_MS);
   wifiConnect();
   mqttMessage();
+  postMessage();
 
 
 

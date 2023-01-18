@@ -6,7 +6,6 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h>//for the post
 #include <ArduinoJson.h>//for the post
-#include <sstream>
 
 using namespace std;
 
@@ -86,24 +85,28 @@ vector<unsigned short int> rotor1a({ 1,2, 3, 4,5,6, 7, 8, 9,10,11,12,13,14,15,16
 vector<unsigned short int> rotor1b({16,5,12,26,7,1,11,15,24,22, 2,17,14, 8,19,20,18,21, 3,23,25,10, 4, 6,13,9});
 vector<unsigned short int> rotor1c({6,11,19,23,2,24,5,14,26,22,7,3,25,13,8,1,12,17,15,16,18,10,20,9,21,4});
 
-vector<unsigned short int> rotor2a({1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
-vector<unsigned short int> rotor2b({10,25,22,13,12,16,23,2,1,8,11,15,26,17,18,21,4,20,3,24,5,6,7,9,14,19});
+vector<unsigned short int> rotor2a({1, 2, 3, 4, 5, 6, 7, 8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
+vector<unsigned short int> rotor2b({10,25,22,13,12,16,23,2,1,8, 11,15,26,17,18,21, 4,20,3, 24, 5, 6, 7,9, 14,19});
+vector<unsigned short int> rotor2c({9,8,19,17,21,22,23,10,24,1,11,5,4,25,12,6,14,15,26,18,16,3,7,20,2,13});
 
-vector<unsigned short int> rotor3a({1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
-vector<unsigned short int> rotor3b({1,13,16,6,15,14,12,18,23,25,3,19,7,21,10,11,19,24,8,2,20,4,5,22,26,9});
+vector<unsigned short int> rotor3a({1,2, 3, 4,5, 6, 7, 8, 9, 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
+vector<unsigned short int> rotor3b({1,13,16,6,15,14,12,18,23,25,3, 17,7, 21,10,11,19,24,8, 2, 20,4, 5, 22,26,9});
+vector<unsigned short int> rotor3c({1,20,11,22,23,4,13,19,26,15,16,7,2,6,5,3,12,8,17,21,14,24,9,18,10,25});
 
-vector<unsigned short int> rotor4a({1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
-vector<unsigned short int> rotor4b({9,6,2,8,13,20,19,3,11,22,16,15,14,23,25,17,26,1,12,21,10,4,24,5,18,7});
+vector<unsigned short int> rotor4a({1,2,3,4, 5, 6, 7,8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
+vector<unsigned short int> rotor4b({9,6,2,8,13,20,19,3,11,22,16,15,14,23,25,17,26, 1,12,21,10, 4,24, 5,18, 7});
+vector<unsigned short int> rotor4c({18,3,8,22,24,2,26,4,1,21,9,19,5,13,12,11,16,25,7,6,20,10,14,23,15,17});
 
-vector<unsigned short int> rotor5a({1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
-vector<unsigned short int> rotor5b({1,11,18,12,22,19,21,2,8,10,5,15,14,16,20,25,23,3,4,24,9,17,7,26,13,6});
+vector<unsigned short int> rotor5a({1, 2, 3, 4, 5, 6, 7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
+vector<unsigned short int> rotor5b({1,11,18,12,22,19,21,2,8,10, 5,15,14,16,20,25,23, 3, 4,24, 9,17, 7,26,13, 6});
+vector<unsigned short int> rotor5c({1,8,18,19,11,26,23,9,21,10,2,4,25,13,12,14,22,3,6,15,7,5,17,20,16,24});
 
 vector<unsigned short int> reflectora({8, 5, 6, 16,7, 9, 2,26,10,14,25,12,15});
 vector<unsigned short int> reflectorb({20,21,11,1, 13,24,3,4, 22,18,23,17,19});
 
 
 
-vector<vector<unsigned short int>> possibleRotors{rotor1a,rotor1b,rotor2a,rotor2b,rotor3a,rotor3b,rotor4a,rotor4b,rotor5a,rotor5b};
+vector<vector<unsigned short int>> possibleRotors{rotor1a,rotor1b,rotor1c,rotor2a,rotor2b,rotor2c,rotor3a,rotor3b,rotor3c,rotor4a,rotor4b,rotor4c,rotor5a,rotor5b,rotor5c};
 
 vector<unsigned short int> ledSequence({16,25,24,3,22,2,14,13,12,11,10,8,7,6,4,19,1,17,23,5,18,20,26,21,9,15});
 
@@ -184,8 +187,8 @@ bool pressedStopButton = false;
 bool pressedStartButton = false;
 
 Rotor rotorLeft(1,7,1,1,possibleRotors[0],possibleRotors[1],rotor1c);
-Rotor rotorMid(1,8,2,1,possibleRotors[2],possibleRotors[3],rotor1c);
-Rotor rotorRight(1,8,3,1,possibleRotors[4],possibleRotors[5],rotor1c);
+Rotor rotorMid(1,8,2,1,possibleRotors[2],possibleRotors[3],rotor2c);
+Rotor rotorRight(1,8,3,1,possibleRotors[4],possibleRotors[5],rotor3c);
 
 int actualRotor;
 int rotaryPushed = false;
@@ -1331,17 +1334,17 @@ Serial.println("current position rotor right"+String(rotorRight.currentPosition)
 Serial.println("done turning");
 
 //now that the rotors are chosen, assiciate the correct vectors with it
-rotorLeft.vectorRotorA = possibleRotors[(rotorLeft.rotorChoice*2)-2];
-rotorLeft.vectorRotorB = possibleRotors[(rotorLeft.rotorChoice*2)-1]; 
-rotorLeft.vectorRotorC = rotor1c;
+rotorLeft.vectorRotorA = possibleRotors[(rotorLeft.rotorChoice*3)-3];
+rotorLeft.vectorRotorB = possibleRotors[(rotorLeft.rotorChoice*3)-2]; 
+rotorLeft.vectorRotorC = possibleRotors[(rotorLeft.rotorChoice*3)-1];
 
-rotorMid.vectorRotorA = possibleRotors[(rotorMid.rotorChoice*2)-2];
-rotorMid.vectorRotorB = possibleRotors[(rotorMid.rotorChoice*2)-1]; 
-rotorMid.vectorRotorC = rotor1c;
+rotorMid.vectorRotorA = possibleRotors[(rotorMid.rotorChoice*3)-3];
+rotorMid.vectorRotorB = possibleRotors[(rotorMid.rotorChoice*3)-2]; 
+rotorMid.vectorRotorC = possibleRotors[(rotorMid.rotorChoice*3)-1];
 
-rotorRight.vectorRotorA = possibleRotors[(rotorRight.rotorChoice*2)-2];
-rotorRight.vectorRotorB = possibleRotors[(rotorRight.rotorChoice*2)-1]; 
-rotorRight.vectorRotorC = rotor1c;
+rotorRight.vectorRotorA = possibleRotors[(rotorRight.rotorChoice*3)-3];
+rotorRight.vectorRotorB = possibleRotors[(rotorRight.rotorChoice*3)-2]; 
+rotorRight.vectorRotorC = possibleRotors[(rotorRight.rotorChoice*3)-1];
 
 for (size_t i = 0; i < rotorRight.vectorRotorA.size(); i++)
 {

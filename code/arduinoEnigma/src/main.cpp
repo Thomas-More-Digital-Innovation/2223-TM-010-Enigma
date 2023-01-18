@@ -18,13 +18,16 @@ class Rotor{
     int previousPositionSetup;
     vector<unsigned short int> vectorRotorA;
     vector<unsigned short int> vectorRotorB;
+    vector<unsigned short int> vectorRotorC;
+
     //constructor
-    Rotor(int currentPosition,int positionTurnRotorToLeft, int rotorChoice,int previousPositionSetup,vector<unsigned short int> vectorRotorA,vector<unsigned short int> vectorRotorB){
+    Rotor(int currentPosition,int positionTurnRotorToLeft, int rotorChoice,int previousPositionSetup,vector<unsigned short int> vectorRotorA,vector<unsigned short int> vectorRotorB,vector<unsigned short int> vectorRotorC){
       this->currentPosition = currentPosition;
       this->positionTurnRotorToLeft = positionTurnRotorToLeft;
       this->rotorChoice = rotorChoice;
       this->vectorRotorA = vectorRotorA;
       this->vectorRotorB = vectorRotorB;
+      this->vectorRotorC = vectorRotorC;
       this->previousPositionSetup = previousPositionSetup;
     }
     
@@ -81,6 +84,7 @@ CRGB leds[NUM_LEDS];
 vector<char> letterNumber({'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'});
 vector<unsigned short int> rotor1a({ 1,2, 3, 4,5,6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
 vector<unsigned short int> rotor1b({16,5,12,26,7,1,11,15,24,22, 2,17,14, 8,19,20,18,21, 3,23,25,10, 4, 6,13,9});
+vector<unsigned short int> rotor1c({6,11,19,23,2,24,5,14,26,22,7,3,25,13,8,1,12,17,15,16,18,10,20,9,21,4});
 
 vector<unsigned short int> rotor2a({1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26});
 vector<unsigned short int> rotor2b({10,25,22,13,12,16,23,2,1,8,11,15,26,17,18,21,4,20,3,24,5,6,7,9,14,19});
@@ -179,9 +183,9 @@ int ALastState;
 bool pressedStopButton = false;
 bool pressedStartButton = false;
 
-Rotor rotorLeft(1,7,1,1,possibleRotors[0],possibleRotors[1]);
-Rotor rotorMid(1,8,2,1,possibleRotors[2],possibleRotors[3]);
-Rotor rotorRight(1,8,3,1,possibleRotors[4],possibleRotors[5]);
+Rotor rotorLeft(1,7,1,1,possibleRotors[0],possibleRotors[1],rotor1c);
+Rotor rotorMid(1,8,2,1,possibleRotors[2],possibleRotors[3],rotor1c);
+Rotor rotorRight(1,8,3,1,possibleRotors[4],possibleRotors[5],rotor1c);
 
 int actualRotor;
 int rotaryPushed = false;
@@ -520,6 +524,7 @@ void turnRotorWithKeyboard(){
   rotorRight.currentPosition += 1;
   rotorRight.vectorRotorA = rotateVector(1,rotorRight.vectorRotorA);
   rotorRight.vectorRotorB = rotateVector(1,rotorRight.vectorRotorB);
+  rotorRight.vectorRotorC = rotateVector(1,rotorRight.vectorRotorC);
   if (rotorRight.currentPosition >26)
   {
     rotorRight.currentPosition = 1;
@@ -536,6 +541,7 @@ void turnRotorWithKeyboard(){
     //software rotate
     rotorMid.vectorRotorA = rotateVector(1,rotorMid.vectorRotorA);
     rotorMid.vectorRotorB = rotateVector(1,rotorMid.vectorRotorB);
+    rotorMid.vectorRotorC = rotateVector(1,rotorMid.vectorRotorC);
     if (rotorMid.currentPosition >26)
     {
       rotorMid.currentPosition = 1;
@@ -549,6 +555,7 @@ void turnRotorWithKeyboard(){
     rotorLeft.currentPosition += 1;
     rotorLeft.vectorRotorA = rotateVector(1,rotorLeft.vectorRotorA);
     rotorLeft.vectorRotorB = rotateVector(1,rotorLeft.vectorRotorB);
+    rotorLeft.vectorRotorC = rotateVector(1,rotorLeft.vectorRotorC);
     if (rotorLeft.currentPosition>26)
     {
       rotorLeft.currentPosition = 1;
@@ -559,7 +566,7 @@ void turnRotorWithKeyboard(){
 }
 
 int encodeLetter(int letter){
-    int outLetterFromSwitchboard;
+  int outLetterFromSwitchboard;
   int indexSwitchboardA = get_index(switchboardA,letter);
   int indexSwitchboardB = get_index(switchboardB,letter);
   if (indexSwitchboardA != 30){
@@ -571,62 +578,141 @@ int encodeLetter(int letter){
   }
   Serial.println("letter                  : "+String(letter));
   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
-  //now i have the letter that comes out of the switchboard
-  //go trough first rotor
 
-  int indexLetterA = get_index(rotorRight.vectorRotorA,outLetterFromSwitchboard);
-  int letterVectorB = rotorRight.vectorRotorB[indexLetterA];
-  Serial.println("letterRightB             : "+String(letterVectorB));
+  int positionB = rotorRight.vectorRotorB[outLetterFromSwitchboard-1]-rotorRight.currentPosition+1;
+  if(positionB<1){
+    positionB+=26;
+  }
+  Serial.println("rotorRight:   "+String(positionB));
+  positionB = rotorMid.vectorRotorB[positionB-1]-rotorMid.currentPosition+1;
+  if(positionB<1){
+    positionB+=26;
+  }
+  Serial.println("rotorMid:   "+String(positionB));
+  positionB = rotorLeft.vectorRotorB[positionB-1]-rotorLeft.currentPosition+1;
+  if(positionB<1){
+    positionB+=26;
+  }
+  Serial.println("rotorLeft:   "+String(positionB));
 
-  indexLetterA = get_index(rotorMid.vectorRotorA,letterVectorB);
-  letterVectorB = rotorMid.vectorRotorB[indexLetterA];
-  Serial.println("letterMidB             : "+String(letterVectorB));
-
-  indexLetterA = get_index(rotorLeft.vectorRotorA,letterVectorB);
-  letterVectorB = rotorLeft.vectorRotorB[indexLetterA];
-  Serial.println("letterMidB             : "+String(letterVectorB));
 
 
+  
   //went trough all rotors, now trough reflector
   int outLetterFromReflector;
-  int indexReflectorA = get_index(reflectora,letterVectorB);
+  int indexReflectorA = get_index(reflectora,positionB);
   if(indexReflectorA!= 30){
     outLetterFromReflector = reflectorb[indexReflectorA];
   }else{
-    int indexReflextorB = get_index(reflectorb,letterVectorB);
+    int indexReflextorB = get_index(reflectorb,positionB);
     outLetterFromReflector = reflectora[indexReflextorB];
   }
   Serial.println("outLetterReflector        : "+String(outLetterFromReflector));
+
   //back trough rotors
-
-  int indexLetterB = get_index(rotorLeft.vectorRotorB,outLetterFromReflector);
-  int letterVectorA = rotorLeft.vectorRotorA[indexLetterB];
-  Serial.println("letterLeftA               : "+String(letterVectorA));
-
-  indexLetterB = get_index(rotorMid.vectorRotorB,letterVectorA);
-  letterVectorA = rotorMid.vectorRotorA[indexLetterB];
-  Serial.println("letterMid  A             : "+String(letterVectorA));
-
-  indexLetterB = get_index(rotorRight.vectorRotorB,letterVectorA);
-  letterVectorA = rotorRight.vectorRotorA[indexLetterB];
-  Serial.println("letterRightA             : "+String(letterVectorA));
-
+  positionB = rotorLeft.vectorRotorC[outLetterFromReflector-1]-rotorLeft.currentPosition+1;
+  if(positionB<1){
+    positionB+=26;
+  }
+  Serial.println("rotorLeft:   "+String(positionB));
+  
+  positionB = rotorMid.vectorRotorC[positionB-1]-rotorMid.currentPosition+1;
+  if(positionB<1){
+    positionB+=26;
+  }
+  Serial.println("rotorMid:   "+String(positionB));
+  positionB = rotorRight.vectorRotorC[positionB-1]-rotorRight.currentPosition+1;
+  if(positionB<1){
+    positionB+=26;
+  }
+  Serial.println("rotorRight:   "+String(positionB));
+  
 
   //went trough all rotors again, now once more trough switchboard
-  indexSwitchboardA = get_index(switchboardA,letterVectorA);
-  indexSwitchboardB = get_index(switchboardB,letterVectorA);
+  indexSwitchboardA = get_index(switchboardA,positionB);
+  indexSwitchboardB = get_index(switchboardB,positionB);
   if (indexSwitchboardA != 30){
     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
   }else if(indexSwitchboardB != 30){
     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
   }else{
-    outLetterFromSwitchboard = letterVectorA;
+    outLetterFromSwitchboard = positionB;
   }
   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
 
   return outLetterFromSwitchboard;
 
 }
+
+// int encodeLetter(int letter){
+//     int outLetterFromSwitchboard;
+//   int indexSwitchboardA = get_index(switchboardA,letter);
+//   int indexSwitchboardB = get_index(switchboardB,letter);
+//   if (indexSwitchboardA != 30){
+//     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
+//   }else if(indexSwitchboardB !=30){
+//     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
+//   }else{
+//     outLetterFromSwitchboard = letter;
+//   }
+//   Serial.println("letter                  : "+String(letter));
+//   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
+//   //now i have the letter that comes out of the switchboard
+//   //go trough first rotor
+
+//   int indexLetterA;
+//   int letterVectorB = rotorRight.vectorRotorB[outLetterFromSwitchboard-1];
+//   Serial.println("letterRightB             : "+String(letterVectorB));
+
+//   indexLetterA = get_index(rotorMid.vectorRotorA,letterVectorB);
+//   letterVectorB = rotorMid.vectorRotorB[indexLetterA];
+//   Serial.println("letterMidB             : "+String(letterVectorB));
+
+//   indexLetterA = get_index(rotorLeft.vectorRotorA,letterVectorB);
+//   letterVectorB = rotorLeft.vectorRotorB[indexLetterA];
+//   Serial.println("letterMidB             : "+String(letterVectorB));
+
+
+//   //went trough all rotors, now trough reflector
+//   int outLetterFromReflector;
+//   int indexReflectorA = get_index(reflectora,letterVectorB);
+//   if(indexReflectorA!= 30){
+//     outLetterFromReflector = reflectorb[indexReflectorA];
+//   }else{
+//     int indexReflextorB = get_index(reflectorb,letterVectorB);
+//     outLetterFromReflector = reflectora[indexReflextorB];
+//   }
+//   Serial.println("outLetterReflector        : "+String(outLetterFromReflector));
+//   //back trough rotors
+
+//   int indexLetterB = get_index(rotorLeft.vectorRotorB,outLetterFromReflector);
+//   int letterVectorA = rotorLeft.vectorRotorA[indexLetterB];
+//   Serial.println("letterLeftA               : "+String(letterVectorA));
+
+//   indexLetterB = get_index(rotorMid.vectorRotorB,letterVectorA);
+//   letterVectorA = rotorMid.vectorRotorA[indexLetterB];
+//   Serial.println("letterMid  A             : "+String(letterVectorA));
+
+//   indexLetterB = get_index(rotorRight.vectorRotorB,letterVectorA);
+//   letterVectorA = rotorRight.vectorRotorA[indexLetterB];
+//   Serial.println("letterRightA             : "+String(letterVectorA));
+
+
+//   //went trough all rotors again, now once more trough switchboard
+//   indexSwitchboardA = get_index(switchboardA,letterVectorA);
+//   indexSwitchboardB = get_index(switchboardB,letterVectorA);
+//   if (indexSwitchboardA != 30){
+//     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
+//   }else if(indexSwitchboardB != 30){
+//     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
+//   }else{
+//     outLetterFromSwitchboard = letterVectorA;
+//   }
+//   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
+
+//   return outLetterFromSwitchboard;
+
+// }
 
 
 
@@ -700,6 +786,27 @@ int encodeLetter(int letter){
 
 // }
 
+void printVectors(){
+  Serial.println("A vector");
+  for (size_t i = 0; i < rotorRight.vectorRotorA.size(); i++)
+  {
+    Serial.print(rotorRight.vectorRotorA[i]);
+    Serial.print(",");
+  }
+  Serial.println("A vector");
+  for (size_t i = 0; i < rotorRight.vectorRotorB.size(); i++)
+  {
+    Serial.print(rotorRight.vectorRotorB[i]);
+    Serial.print(",");
+  }
+  Serial.println("A vector");
+  for (size_t i = 0; i < rotorRight.vectorRotorC.size(); i++)
+  {
+    Serial.print(rotorRight.vectorRotorC[i]);
+    Serial.print(",");
+  }
+}
+
 
 void getLetterFromInputs(int column, int row){
   String letter;
@@ -709,6 +816,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][0];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][0]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -718,6 +826,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][1];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][1]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -727,6 +836,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][2];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][2]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -736,6 +846,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][3];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][3]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -745,6 +856,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][4];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][4]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -754,6 +866,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][5];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][5]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -763,6 +876,7 @@ void getLetterFromInputs(int column, int row){
   {
     letter = keyboardPoints[row][6];
     Serial.println("letter: "+ letter);
+    printVectors();
     encodedLetter = encodeLetter(keyboardPointsInt[row][6]);
     textToPost += letterNumber[encodedLetter-1];
     turnRotorWithKeyboard();
@@ -1219,12 +1333,15 @@ Serial.println("done turning");
 //now that the rotors are chosen, assiciate the correct vectors with it
 rotorLeft.vectorRotorA = possibleRotors[(rotorLeft.rotorChoice*2)-2];
 rotorLeft.vectorRotorB = possibleRotors[(rotorLeft.rotorChoice*2)-1]; 
+rotorLeft.vectorRotorC = rotor1c;
 
 rotorMid.vectorRotorA = possibleRotors[(rotorMid.rotorChoice*2)-2];
 rotorMid.vectorRotorB = possibleRotors[(rotorMid.rotorChoice*2)-1]; 
+rotorMid.vectorRotorC = rotor1c;
 
 rotorRight.vectorRotorA = possibleRotors[(rotorRight.rotorChoice*2)-2];
 rotorRight.vectorRotorB = possibleRotors[(rotorRight.rotorChoice*2)-1]; 
+rotorRight.vectorRotorC = rotor1c;
 
 for (size_t i = 0; i < rotorRight.vectorRotorA.size(); i++)
 {
@@ -1239,10 +1356,13 @@ Serial.println();
 
 rotorLeft.vectorRotorA = rotateVector(rotorLeft.currentPosition-1,rotorLeft.vectorRotorA);
 rotorLeft.vectorRotorB = rotateVector(rotorLeft.currentPosition-1,rotorLeft.vectorRotorB);
+rotorLeft.vectorRotorC = rotateVector(rotorLeft.currentPosition-1,rotorLeft.vectorRotorC);
 rotorMid.vectorRotorA = rotateVector(rotorMid.currentPosition-1,rotorMid.vectorRotorA);
 rotorMid.vectorRotorB = rotateVector(rotorMid.currentPosition-1,rotorMid.vectorRotorB);
+rotorMid.vectorRotorC = rotateVector(rotorMid.currentPosition-1,rotorMid.vectorRotorC);
 rotorRight.vectorRotorA = rotateVector(rotorRight.currentPosition-1,rotorRight.vectorRotorA);
 rotorRight.vectorRotorB = rotateVector(rotorRight.currentPosition-1,rotorRight.vectorRotorB);
+rotorRight.vectorRotorC = rotateVector(rotorRight.currentPosition-1,rotorRight.vectorRotorC);
 
      
 ////////////////////////////////////////////////////////////////////////////////
@@ -1267,6 +1387,7 @@ for (size_t i = 0; i < switchboardB.size(); i++)
   Serial.print(switchboardB[i]);
   Serial.print(",");
 }
+
 Serial.println("endedSwitchboard");
 
 

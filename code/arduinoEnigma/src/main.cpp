@@ -4,6 +4,9 @@
 #include <FastLED.h>
 #include "WiFi.h"
 #include <PubSubClient.h>
+#include <HTTPClient.h>//for the post
+#include <ArduinoJson.h>//for the post
+#include <sstream>
 
 using namespace std;
 
@@ -55,6 +58,7 @@ class Rotor{
 
 
 };
+String encodedWord = "testwoord";
 
 //wifi
 const char* ssid = "embedded";
@@ -63,6 +67,11 @@ const char* password =  "IoTembedded";
 const char* mqtt_server = "broker.hivemq.com";
 WiFiClient espWifiClient;
 PubSubClient client(espWifiClient);
+//api
+DynamicJsonDocument doc(1024);//for the post response
+
+String originalUrl = "https://2223-tm-010-enigma.pages.dev/api/";
+String xApiKey = "EnigmaAPITokenTest";
 
 //ledstrip
 #define NUM_LEDS 26
@@ -377,7 +386,7 @@ void reconnect() {
 }
 
 //https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
-void mqttMessage(){
+void mqttMessage(String message){
   if(WiFi.status()==WL_CONNECTED){
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
@@ -386,14 +395,28 @@ void mqttMessage(){
     }
     client.loop();
 
-    int temperature = 18;
-    char tempString[8];
-    dtostrf(temperature, 1, 2, tempString);
-    Serial.print("Temperature: ");
-    Serial.println(tempString);
-    client.publish("topic/enigmaThomasMoreHanne", tempString);
+    int lengthWord = message.length();
+    char messageCharArray[lengthWord];
+    for (size_t i = 0; i < lengthWord; i++)
+    {
+      messageCharArray[i] = message[i];
+    }
+    Serial.println(messageCharArray);
+    client.publish("topic/enigmaThomasMoreHanne", messageCharArray);
     Serial.println("published MQTT");
   }
+}
+
+void postMessage(){
+  String fullUrl = originalUrl+encodedWord;
+  HTTPClient http;   
+    
+  http.begin(fullUrl);  
+  //set the headers
+  http.addHeader("Content-Type", "application/json");             
+  http.addHeader("x-api-key", xApiKey);
+  
+  int httpResponseCode = http.POST("post from enigma");
 }
 
 
@@ -1015,19 +1038,30 @@ for (size_t i = 0; i < rotorRight.vectorRotorB.size(); i++)
 
 Serial.println("startedSwitchboard");
 readSwitchboard();
+String switchboardAString = "";
+String switchboardBString = "";
 Serial.println("A vector");
 for (size_t i = 0; i < switchboardA.size(); i++)
 {
+  switchboardAString+=switchboardA[i]+",";
   Serial.print(switchboardA[i]);
   Serial.print(",");
 }
 Serial.println("B vector");
 for (size_t i = 0; i < switchboardB.size(); i++)
 {
+  switchboardBString+=switchboardB[i]+",";
   Serial.print(switchboardB[i]);
   Serial.print(",");
 }
 Serial.println("endedSwitchboard");
+
+
+
+
+
+String settings = String(rotorLeft.rotorChoice)+","+String(rotorLeft.currentPosition)+";"+String(rotorMid.rotorChoice)+","+String(rotorMid.currentPosition)+";"+String(rotorRight.rotorChoice)+","+String(rotorRight.currentPosition)+"end";
+
 ledsMoving();
   
 
@@ -1062,7 +1096,9 @@ ledsMoving();
 ////////////////////////////////////////////////////////////////////////////////
   vTaskDelay(1000/portTICK_PERIOD_MS);
   wifiConnect();
-  mqttMessage();
+  
+  mqttMessage(settings);
+  postMessage();
 
 
 

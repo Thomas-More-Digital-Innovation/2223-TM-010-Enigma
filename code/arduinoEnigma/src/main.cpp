@@ -55,6 +55,7 @@ class Rotor{
 
 
 };
+String encodedWord = "testwoord";
 
 //wifi
 const char* ssid = "embedded";
@@ -386,12 +387,14 @@ void mqttMessage(){
     }
     client.loop();
 
-    int temperature = 18;
-    char tempString[8];
-    dtostrf(temperature, 1, 2, tempString);
-    Serial.print("Temperature: ");
-    Serial.println(tempString);
-    client.publish("topic/enigmaThomasMoreHanne", tempString);
+    int lengthWord = encodedWord.length();
+    char wordChar[lengthWord];
+    for (size_t i = 0; i < lengthWord; i++)
+    {
+      wordChar[i] = encodedWord[i];
+    }
+    
+    client.publish("topic/enigmaThomasMoreHanne", wordChar);
     Serial.println("published MQTT");
   }
 }

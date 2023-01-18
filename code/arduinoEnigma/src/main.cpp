@@ -6,6 +6,7 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h>//for the post
 #include <ArduinoJson.h>//for the post
+#include <sstream>
 
 using namespace std;
 
@@ -385,7 +386,7 @@ void reconnect() {
 }
 
 //https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
-void mqttMessage(){
+void mqttMessage(String message){
   if(WiFi.status()==WL_CONNECTED){
     client.setServer(mqtt_server, 1883);
     client.setCallback(callback);
@@ -394,14 +395,14 @@ void mqttMessage(){
     }
     client.loop();
 
-    int lengthWord = encodedWord.length();
-    char wordChar[lengthWord];
+    int lengthWord = message.length();
+    char messageCharArray[lengthWord];
     for (size_t i = 0; i < lengthWord; i++)
     {
-      wordChar[i] = encodedWord[i];
+      messageCharArray[i] = message[i];
     }
-    
-    client.publish("topic/enigmaThomasMoreHanne", wordChar);
+    Serial.println(messageCharArray);
+    client.publish("topic/enigmaThomasMoreHanne", messageCharArray);
     Serial.println("published MQTT");
   }
 }
@@ -1037,19 +1038,30 @@ for (size_t i = 0; i < rotorRight.vectorRotorB.size(); i++)
 
 Serial.println("startedSwitchboard");
 readSwitchboard();
+String switchboardAString = "";
+String switchboardBString = "";
 Serial.println("A vector");
 for (size_t i = 0; i < switchboardA.size(); i++)
 {
+  switchboardAString+=switchboardA[i]+",";
   Serial.print(switchboardA[i]);
   Serial.print(",");
 }
 Serial.println("B vector");
 for (size_t i = 0; i < switchboardB.size(); i++)
 {
+  switchboardBString+=switchboardB[i]+",";
   Serial.print(switchboardB[i]);
   Serial.print(",");
 }
 Serial.println("endedSwitchboard");
+
+
+
+
+
+String settings = String(rotorLeft.rotorChoice)+","+String(rotorLeft.currentPosition)+";"+String(rotorMid.rotorChoice)+","+String(rotorMid.currentPosition)+";"+String(rotorRight.rotorChoice)+","+String(rotorRight.currentPosition)+"end";
+
 ledsMoving();
   
 
@@ -1084,7 +1096,8 @@ ledsMoving();
 ////////////////////////////////////////////////////////////////////////////////
   vTaskDelay(1000/portTICK_PERIOD_MS);
   wifiConnect();
-  mqttMessage();
+  
+  mqttMessage(settings);
   postMessage();
 
 

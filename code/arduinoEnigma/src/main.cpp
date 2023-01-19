@@ -300,20 +300,40 @@ void ledsMoving(){
   }
   FastLED.clear(true); 
 }
+void rotaryLeds(){
+  FastLED.clear();
+  leds[20] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[25] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[21] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  FastLED.show();
+}
 
 void wifiLeds(){
   FastLED.clear();
-  leds[0] = CRGB::White;
+  leds[18] = CRGB::White;
   FastLED.show();
   vTaskDelay(500/portTICK_PERIOD_MS);
   FastLED.clear();
-  leds[1] = CRGB::White;
+  leds[24] = CRGB::White;
   FastLED.show();
   vTaskDelay(500/portTICK_PERIOD_MS);
   FastLED.clear();
-  leds[2] = CRGB::White;
+  leds[13] = CRGB::White;
   FastLED.show();
   vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[24] = CRGB::White;
+  FastLED.show();
+  vTaskDelay(800/portTICK_PERIOD_MS);
 
 }
 
@@ -1282,6 +1302,7 @@ WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
 
 
 Serial.println("started rotary read");
+rotaryLeds();
 textToPost = "";
 
 while (pressedStartButton == false)
@@ -1439,6 +1460,9 @@ ledsMoving();
   
   mqttMessage(settings);
   postMessage();
+
+  FastLED.clear();
+  FastLED.show();
 
 
 

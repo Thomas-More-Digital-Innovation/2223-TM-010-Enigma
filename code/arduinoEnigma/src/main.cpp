@@ -38,27 +38,9 @@ class Rotor{
         rotorChoice = 1;
       }
       Serial.println(rotorChoice);
-      
-      // setRotorChoice(rotorChoice);
+
       return rotorChoice;
     }
-    // void buttonPushed(Rotor *rotor){
-    //   Rotor rotor2 = *rotor;
-
-
-    //   rotorChoice +=1;
-    //   if (rotorChoice>5){
-    //     rotorChoice = 1;
-    //   }
-      
-    //   rotor2.rotorChoice=rotorChoice;
-    //   // Serial.println(rotorChoice);
-      
-    //   // setRotorChoice(rotorChoice);
-    //   // return rotorChoice;
-    // }
-
-
 };
 
 //wifi
@@ -138,8 +120,6 @@ int keyboardPointsInt[4][7] = {{15,9,21,26,20,18,5}, {11,10,8,7,6,4,19},{12,13,1
 #define STEPPERWRITEADDR 0x42
 #define STEPPERREADADDR 0x43
 
-#define STEPSIZELETTER 5
-
 //switchboard
 #define SWITCHBOARD1_CS 12
 #define SWITCHBOARD2_CS 27
@@ -148,6 +128,8 @@ int keyboardPointsInt[4][7] = {{15,9,21,26,20,18,5}, {11,10,8,7,6,4,19},{12,13,1
 #define SWITCHBOARD1READADDR 0X45
 #define SWITCHBOARD2WRITEADDR 0X46
 #define SWITCHBOARD2READADDR 0X47
+
+int stepSizeLetter = 5;
 
 //regpresents what letters are attatched to te switchboard io expander registers
 int switchboard3RegA[8] = {1,2,3,4,5,6,7,8};
@@ -449,55 +431,96 @@ void postMessage(){
   int httpResponseCode = http.POST("post from enigma");
 }
 
-
-
-void turnMotor(int steps, int motor, int GPIOAB){
-  //motor 1 and 2 are on gpioA, 3 on gpioB
-  //motor 2 is attatched to the last 4 bits of the GPIOA => <<4
+void turnMotorBack(int steps, int motor, int GPIOAB, int wirteAddres, int cs){
   int step1 = (motor==1 || motor==3) ? 0b00000011 : 0b00000011<<4;
   int step2 = (motor==1 || motor==3) ? 0b00000110 : 0b00000110<<4;
   int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b00001100<<4;
   int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b00001001<<4;
+
+  for (int i = 0; i > steps*stepSizeLetter; i--)
+    { 
+      WriteSpi(wirteAddres,GPIOAB,step1,cs);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(wirteAddres,GPIOAB,step2,cs);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(wirteAddres,GPIOAB,step3,cs);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      WriteSpi(wirteAddres,GPIOAB,step4,cs);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+}
+
+void turnMotor2(){
+  WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,0b00000000,SWITCHBOARD2_CS);
+  int limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,2+4);
+  for (int j = 0; j < 8000*stepSizeLetter; j++)
+    {
+      if (limiterSwitch)
+      {
+        turnMotorBack(-4,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
+        Serial.println("turningBack");
+        break;
+      }
+      Serial.println("step1");
+      WriteSpi(SWITCHBOARD2WRITEADDR,GPIOB,0b10010000,SWITCHBOARD2_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      Serial.println("step2");
+      WriteSpi(SWITCHBOARD2WRITEADDR,GPIOB,0b11000000,SWITCHBOARD2_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      Serial.println("step3");
+      WriteSpi(SWITCHBOARD2WRITEADDR,GPIOB,0b01100000,SWITCHBOARD2_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      Serial.println("step4");
+      WriteSpi(SWITCHBOARD2WRITEADDR,GPIOB,0b00110000,SWITCHBOARD2_CS);
+      vTaskDelay(10/portTICK_PERIOD_MS);
+      limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,2+4);
+    }
+  
+}
+
+
+
+void turnMotor(int steps, int motor, int GPIOAB, int wirteAddres, int cs){
+  WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,0b00000000,SWITCHBOARD2_CS);
+  WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
+  WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
+  
+  //motor 3 and 2 are on gpioA, 1 on gpioB
+  //motor 2 is attatched to the last 4 bits of the GPIOA => <<4
+  int step1 = (motor==1 || motor==3) ? 0b00000011 : 0b00110000;
+  int step2 = (motor==1 || motor==3) ? 0b00000110 : 0b01100000;
+  int step3 = (motor==1 || motor==3) ? 0b00001100 : 0b11000000;
+  int step4 = (motor==1 || motor==3) ? 0b00001001 : 0b10010000;
+  if (motor == 2){
+    step1=0b00110000;
+    step2=0b01100000;
+    step3=0b11000000;
+    step4=0b10010000;
+  }
   int limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
   Serial.println("limiter switch: "+String(limiterSwitch));
 
   if (steps <0){
-    for (size_t i = 0; i > steps*STEPSIZELETTER; i--)
-    { if (limiterSwitch)
-      {
-        break;
-      }
+    Serial.println("started this-------------");
+    turnMotorBack(steps,motor,GPIOAB,wirteAddres,cs);
     
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step1,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step2,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step3,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
-      vTaskDelay(10/portTICK_PERIOD_MS);
-      limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
-      Serial.println("limiter switch: "+String(limiterSwitch));
-      // Serial.println("step1 "+String(step1));
-      // Serial.println("step2 "+String(step2));
-      // Serial.println("step3 "+String(step3));
-      // Serial.println("step4 "+String(step4));
-    }
   } else if (steps >0)
   {
-    for (int j = 0; j < steps*STEPSIZELETTER; j++)
+    for (int j = 0; j < steps*stepSizeLetter; j++)
     {
       if (limiterSwitch)
       {
+        turnMotorBack(-4,motor,GPIOAB,wirteAddres,cs);
+        Serial.println("turningBack");
         break;
       }
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step4,STEPPER_CS);
+      WriteSpi(wirteAddres,GPIOAB,step4,cs);
       vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step3,STEPPER_CS);
+      WriteSpi(wirteAddres,GPIOAB,step3,cs);
       vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step2,STEPPER_CS);
+      WriteSpi(wirteAddres,GPIOAB,step2,cs);
       vTaskDelay(10/portTICK_PERIOD_MS);
-      WriteSpi(STEPPERWRITEADDR,GPIOAB,step1,STEPPER_CS);
+      WriteSpi(wirteAddres,GPIOAB,step1,cs);
       vTaskDelay(10/portTICK_PERIOD_MS);
       limiterSwitch = GetBit(ReadSpi(STEPPERREADADDR,GPIOB,STEPPER_CS),1,motor+4);
     }
@@ -543,7 +566,7 @@ vector<unsigned short int> rotateVector(unsigned short int amountRotation, vecto
 }
 
 void turnRotorWithKeyboard(){
-  // turnMotor(1,3,GPIOB);
+  turnMotor(-1,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
   rotorRight.currentPosition += 1;
   rotorRight.vectorRotorA = rotateVector(1,rotorRight.vectorRotorA);
   rotorRight.vectorRotorB = rotateVector(1,rotorRight.vectorRotorB);
@@ -551,6 +574,9 @@ void turnRotorWithKeyboard(){
   if (rotorRight.currentPosition >26)
   {
     rotorRight.currentPosition = 1;
+    stepSizeLetter = 5;
+    turnMotor(8000,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
+    stepSizeLetter = 18;
   }
   
   Serial.println("turning rotorRight 1 pos");
@@ -558,7 +584,7 @@ void turnRotorWithKeyboard(){
   if (rotorRight.currentPosition == rotorRight.positionTurnRotorToLeft)
   {
     //hardware rotate
-    // turnMotor(1,2,GPIOA);
+    turnMotor(-1,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
     rotorMid.currentPosition += 1;
     
     //software rotate
@@ -568,13 +594,16 @@ void turnRotorWithKeyboard(){
     if (rotorMid.currentPosition >26)
     {
       rotorMid.currentPosition = 1;
+      stepSizeLetter = 5;
+      turnMotor(8000,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
+      stepSizeLetter = 18;
     }
     
     Serial.println("turning rotorMid 1 pos");
   }
   if (rotorMid.currentPosition == rotorMid.positionTurnRotorToLeft)
   {
-    // turnMotor(1,1,GPIOA);
+    turnMotor(-1,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
     rotorLeft.currentPosition += 1;
     rotorLeft.vectorRotorA = rotateVector(1,rotorLeft.vectorRotorA);
     rotorLeft.vectorRotorB = rotateVector(1,rotorLeft.vectorRotorB);
@@ -582,6 +611,9 @@ void turnRotorWithKeyboard(){
     if (rotorLeft.currentPosition>26)
     {
       rotorLeft.currentPosition = 1;
+      stepSizeLetter = 5;
+      turnMotor(8000,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
+      stepSizeLetter = 18;
     }
     
     Serial.println("turning rotorLeft 1 pos");
@@ -1232,10 +1264,10 @@ void readSwitchboard(){
 
 }
 
-void setupTurnMotor(int previousPosition, int currentPosition, int motor, int GPIOAB){
-  int difference = currentPosition - previousPosition;
+void setupTurnMotor(int previousPosition, int currentPosition, int motor, int GPIOAB, int writeAddres, int cs){
+  int difference = previousPosition-currentPosition;
   Serial.println("motor "+String(motor)+" previous "+String(previousPosition)+" currentPosition "+String(currentPosition)+" stepps "+String(difference));
-  // turnMotor(difference,motor,GPIOAB);
+  turnMotor(difference,motor,GPIOAB,writeAddres,cs);
 
 }
 
@@ -1271,24 +1303,25 @@ void setup() {
 
   SPI.begin();
 
-  WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
-  WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
-
   
-  // wifiConnect();
-
-  
-
-  //on startup turn all rotors to A
-  // turnMotor(8000,1,GPIOA);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
-  // turnMotor(8000,2,GPIOA);
-  // turnMotor(8000,3,GPIOB);
 }
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////MAIN//////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 
 void loop() {
+WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
+WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
+WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,0b00000000,SWITCHBOARD2_CS);
+
+// wifiConnect();
+stepSizeLetter = 5;
+//on startup turn all rotors to A
+turnMotor(8000,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
+// turnMotor2();
+turnMotor(8000,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
+turnMotor(8000,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
+stepSizeLetter = 18;
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////SETUP ENIGMA//////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
@@ -1346,9 +1379,9 @@ Serial.println("current position rotor left"+String(rotorLeft.currentPosition));
 Serial.println("current position rotor mid"+String(rotorMid.currentPosition));
 Serial.println("current position rotor right"+String(rotorRight.currentPosition));
 
-// setupTurnMotor(rotorLeft.previousPositionSetup,rotorLeft.currentPosition,1,GPIOA);
-// setupTurnMotor(rotorMid.previousPositionSetup,rotorMid.currentPosition,2,GPIOA);
-// setupTurnMotor(rotorRight.previousPositionSetup,rotorRight.currentPosition,3,GPIOA);
+setupTurnMotor(rotorLeft.previousPositionSetup,rotorLeft.currentPosition,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
+setupTurnMotor(rotorMid.previousPositionSetup,rotorMid.currentPosition,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
+setupTurnMotor(rotorRight.previousPositionSetup,rotorRight.currentPosition,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
 
 
 

@@ -6,6 +6,7 @@
 #include <PubSubClient.h>
 #include <HTTPClient.h>//for the post
 #include <ArduinoJson.h>//for the post
+#include <UrlEncode.h>
 
 using namespace std;
 
@@ -57,6 +58,9 @@ String originalUrl = "https://2223-tm-010-enigma.pages.dev/api/";
 String xApiKey = "EnigmaAPITokenTest";
 String textToPost = "";
 
+String phoneNumber = "+32479731154";
+String apiKeyWhatsapp = "616691";
+
 //ledstrip
 #define NUM_LEDS 26
 #define LED_PIN 21
@@ -99,6 +103,9 @@ vector<unsigned short int> keyboardTopLayer({17,23,5,18,20,26,21,9,15});
 vector<unsigned short int> keyboardMidLayer({1,19,4,6,7,8,10,11});
 vector<unsigned short int> keyboardBottomLayer({16,25,24,3,22,2,14,13,12});
 
+vector<unsigned short int> acceptibleKeyboardPresses({1,2,4,8,16,32,64});
+
+
 //for every io expander
 #define IODIRA 0x00
 #define IODIRB 0x01
@@ -140,8 +147,6 @@ int switchboard4RegB[2] = {25,26};
 std::vector<unsigned short int> switchboardA = {};
 std::vector<unsigned short int> switchboardB = {};
 
-
-
 unsigned char  read_a = 0; 
 unsigned char  read_b = 0;
 
@@ -174,6 +179,7 @@ Rotor rotorRight(1,8,3,1,possibleRotors[4],possibleRotors[5],rotor3c);
 
 int actualRotor;
 int rotaryPushed = false;
+bool alreadyTurnedLeft = false;
 //////////////////////////
 ///////FUNCTIONS/////////
 /////////////////////////
@@ -316,7 +322,21 @@ void wifiLeds(){
   leds[24] = CRGB::White;
   FastLED.show();
   vTaskDelay(800/portTICK_PERIOD_MS);
+}
 
+void keyboardProblemLed(){
+  FastLED.clear();
+  leds[9] = CRGB::Red;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[19] = CRGB::Red;
+  FastLED.show();
+  vTaskDelay(500/portTICK_PERIOD_MS);
+  FastLED.clear();
+  leds[1] = CRGB::Red;
+  FastLED.show();
+  vTaskDelay(800/portTICK_PERIOD_MS);
 }
 
 void printRegister(int status){
@@ -429,6 +449,31 @@ void postMessage(){
   http.addHeader("x-api-key", xApiKey);
   
   int httpResponseCode = http.POST("post from enigma");
+  WiFi.disconnect();
+}
+//https://randomnerdtutorials.com/esp32-send-messages-whatsapp/
+void sendWhatsapp(String message){
+  String url = "https://api.callmebot.com/whatsapp.php?phone=" + phoneNumber + "&apikey=" + apiKeyWhatsapp + "&text=" + urlEncode(message);
+  HTTPClient http;  
+  http.begin(url);
+
+  // Specify content-type header
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  
+  // Send HTTP POST request
+  int httpResponseCode = http.POST(url);
+  if (httpResponseCode == 200){
+    Serial.print("Message sent successfully");
+  }
+  else{
+    Serial.println("Error sending the message");
+    Serial.print("HTTP response code: ");
+    Serial.println(httpResponseCode);
+  }
+
+  // Free resources
+  http.end();
+
 }
 
 void turnMotorBack(int steps, int motor, int GPIOAB, int wirteAddres, int cs){
@@ -481,6 +526,9 @@ void turnMotor2(){
 
 
 void turnMotor(int steps, int motor, int GPIOAB, int wirteAddres, int cs){
+  FastLED.clear();
+  unsigned long timeTurningStarted = millis();// it takes max 19 seconds to turn from A to Z
+  unsigned long currentTime = millis();
   WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,0b00000000,SWITCHBOARD2_CS);
   WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
   WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
@@ -508,9 +556,19 @@ void turnMotor(int steps, int motor, int GPIOAB, int wirteAddres, int cs){
   {
     for (int j = 0; j < steps*stepSizeLetter; j++)
     {
-      if (limiterSwitch)
+      currentTime = millis();
+      if (limiterSwitch || (currentTime-timeTurningStarted >19000))
       {
-        turnMotorBack(-4,motor,GPIOAB,wirteAddres,cs);
+        if (motor == 1)
+        {
+          turnMotorBack(-3,motor,GPIOAB,wirteAddres,cs);
+        }else if (motor== 2)
+        {
+          turnMotorBack(-4,motor,GPIOAB,wirteAddres,cs);
+        }else if (motor == 3)
+        {
+          turnMotorBack(-4,motor,GPIOAB,wirteAddres,cs);
+        }
         Serial.println("turningBack");
         break;
       }
@@ -542,6 +600,9 @@ int readButtonInputs(){
 
   while (gpioa_state !=0) //as long as the button is pushed keep reading the register
   {
+    if(get_index(acceptibleKeyboardPresses,gpioa_state)==30){
+      keyboardProblemLed();
+    }
     Serial.println("gpio "+ String(gpioa_stateOriginal));
     gpioa_state = ReadSpi(KEYBOARDREADADDR, GPIOA,KEYBOARD_CS);
     vTaskDelay(10/portTICK_PERIOD_MS);
@@ -566,7 +627,7 @@ vector<unsigned short int> rotateVector(unsigned short int amountRotation, vecto
 }
 
 void turnRotorWithKeyboard(){
-  turnMotor(-1,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
+  
   rotorRight.currentPosition += 1;
   rotorRight.vectorRotorA = rotateVector(1,rotorRight.vectorRotorA);
   rotorRight.vectorRotorB = rotateVector(1,rotorRight.vectorRotorB);
@@ -577,6 +638,8 @@ void turnRotorWithKeyboard(){
     stepSizeLetter = 5;
     turnMotor(8000,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
     stepSizeLetter = 18;
+  }else{
+    turnMotor(-1,3,GPIOA,STEPPERWRITEADDR,STEPPER_CS);
   }
   
   Serial.println("turning rotorRight 1 pos");
@@ -584,7 +647,7 @@ void turnRotorWithKeyboard(){
   if (rotorRight.currentPosition == rotorRight.positionTurnRotorToLeft)
   {
     //hardware rotate
-    turnMotor(-1,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
+    
     rotorMid.currentPosition += 1;
     
     //software rotate
@@ -597,13 +660,15 @@ void turnRotorWithKeyboard(){
       stepSizeLetter = 5;
       turnMotor(8000,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
       stepSizeLetter = 18;
+    }else{
+      turnMotor(-1,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
     }
     
     Serial.println("turning rotorMid 1 pos");
   }
-  if (rotorMid.currentPosition == rotorMid.positionTurnRotorToLeft)
+  if (rotorMid.currentPosition == rotorMid.positionTurnRotorToLeft && alreadyTurnedLeft==false)
   {
-    turnMotor(-1,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
+    
     rotorLeft.currentPosition += 1;
     rotorLeft.vectorRotorA = rotateVector(1,rotorLeft.vectorRotorA);
     rotorLeft.vectorRotorB = rotateVector(1,rotorLeft.vectorRotorB);
@@ -615,7 +680,10 @@ void turnRotorWithKeyboard(){
       turnMotor(8000,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
       stepSizeLetter = 18;
     }
-    
+    else{
+      turnMotor(-1,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
+    }
+    alreadyTurnedLeft = true;
     Serial.println("turning rotorLeft 1 pos");
   }
 }
@@ -698,148 +766,6 @@ int encodeLetter(int letter){
   return outLetterFromSwitchboard;
 
 }
-
-// int encodeLetter(int letter){
-//     int outLetterFromSwitchboard;
-//   int indexSwitchboardA = get_index(switchboardA,letter);
-//   int indexSwitchboardB = get_index(switchboardB,letter);
-//   if (indexSwitchboardA != 30){
-//     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
-//   }else if(indexSwitchboardB !=30){
-//     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
-//   }else{
-//     outLetterFromSwitchboard = letter;
-//   }
-//   Serial.println("letter                  : "+String(letter));
-//   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
-//   //now i have the letter that comes out of the switchboard
-//   //go trough first rotor
-
-//   int indexLetterA;
-//   int letterVectorB = rotorRight.vectorRotorB[outLetterFromSwitchboard-1];
-//   Serial.println("letterRightB             : "+String(letterVectorB));
-
-//   indexLetterA = get_index(rotorMid.vectorRotorA,letterVectorB);
-//   letterVectorB = rotorMid.vectorRotorB[indexLetterA];
-//   Serial.println("letterMidB             : "+String(letterVectorB));
-
-//   indexLetterA = get_index(rotorLeft.vectorRotorA,letterVectorB);
-//   letterVectorB = rotorLeft.vectorRotorB[indexLetterA];
-//   Serial.println("letterMidB             : "+String(letterVectorB));
-
-
-//   //went trough all rotors, now trough reflector
-//   int outLetterFromReflector;
-//   int indexReflectorA = get_index(reflectora,letterVectorB);
-//   if(indexReflectorA!= 30){
-//     outLetterFromReflector = reflectorb[indexReflectorA];
-//   }else{
-//     int indexReflextorB = get_index(reflectorb,letterVectorB);
-//     outLetterFromReflector = reflectora[indexReflextorB];
-//   }
-//   Serial.println("outLetterReflector        : "+String(outLetterFromReflector));
-//   //back trough rotors
-
-//   int indexLetterB = get_index(rotorLeft.vectorRotorB,outLetterFromReflector);
-//   int letterVectorA = rotorLeft.vectorRotorA[indexLetterB];
-//   Serial.println("letterLeftA               : "+String(letterVectorA));
-
-//   indexLetterB = get_index(rotorMid.vectorRotorB,letterVectorA);
-//   letterVectorA = rotorMid.vectorRotorA[indexLetterB];
-//   Serial.println("letterMid  A             : "+String(letterVectorA));
-
-//   indexLetterB = get_index(rotorRight.vectorRotorB,letterVectorA);
-//   letterVectorA = rotorRight.vectorRotorA[indexLetterB];
-//   Serial.println("letterRightA             : "+String(letterVectorA));
-
-
-//   //went trough all rotors again, now once more trough switchboard
-//   indexSwitchboardA = get_index(switchboardA,letterVectorA);
-//   indexSwitchboardB = get_index(switchboardB,letterVectorA);
-//   if (indexSwitchboardA != 30){
-//     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
-//   }else if(indexSwitchboardB != 30){
-//     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
-//   }else{
-//     outLetterFromSwitchboard = letterVectorA;
-//   }
-//   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
-
-//   return outLetterFromSwitchboard;
-
-// }
-
-
-
-// int encodeLetter(int letter){
-//     int outLetterFromSwitchboard;
-//   int indexSwitchboardA = get_index(switchboardA,letter);
-//   int indexSwitchboardB = get_index(switchboardB,letter);
-//   if (indexSwitchboardA != 30){
-//     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
-//   }else if(indexSwitchboardB !=30){
-//     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
-//   }else{
-//     outLetterFromSwitchboard = letter;
-//   }
-//   Serial.println("letter                  : "+String(letter));
-//   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
-//   //now i have the letter that comes out of the switchboard
-//   //go trough first rotor
-
-//   int letterVectorB = rotorRight.vectorRotorB[outLetterFromSwitchboard-1];
-//   Serial.println("letterRightB             : "+String(letterVectorB));
-
-  
-//   letterVectorB = rotorMid.vectorRotorB[letterVectorB-1];
-//   Serial.println("letterMid  B             : "+String(letterVectorB));
-
-  
-//   letterVectorB = rotorLeft.vectorRotorB[letterVectorB-1];
-//   Serial.println("letterleft B             : "+String(letterVectorB));
-
-//   //went trough all rotors, now trough reflector
-//   int outLetterFromReflector;
-//   int indexReflectorA = get_index(reflectora,letterVectorB);
-//   if(indexReflectorA!= 30){
-//     outLetterFromReflector = reflectorb[indexReflectorA];
-//   }else{
-//     int indexReflextorB = get_index(reflectorb,letterVectorB);
-//     outLetterFromReflector = reflectora[indexReflextorB];
-//   }
-//   Serial.println("outLetterReflector        : "+String(outLetterFromReflector));
-//   //back trough rotors
-
-//   int indexLetterB = get_index(rotorLeft.vectorRotorB,outLetterFromReflector);
-//   int letterVectorA = rotorLeft.vectorRotorA[indexLetterB];
-//   Serial.println("letterLeftA               : "+String(letterVectorA));
-
-//   indexLetterB = get_index(rotorMid.vectorRotorB,letterVectorA);
-//   letterVectorA = rotorMid.vectorRotorA[indexLetterB];
-//   Serial.println("letterMid  A             : "+String(letterVectorA));
-
-//   indexLetterB = get_index(rotorRight.vectorRotorB,letterVectorA);
-//   letterVectorA = rotorRight.vectorRotorA[indexLetterB];
-//   Serial.println("letterRightA             : "+String(letterVectorA));
-
-
-
-
-//   //went trough all rotors again, now once more trough switchboard
-//   indexSwitchboardA = get_index(switchboardA,letterVectorA);
-//   indexSwitchboardB = get_index(switchboardB,letterVectorA);
-//   if (indexSwitchboardA != 30){
-//     outLetterFromSwitchboard = switchboardB[indexSwitchboardA];
-//   }else if(indexSwitchboardB != 30){
-//     outLetterFromSwitchboard = switchboardA[indexSwitchboardB];
-//   }else{
-//     outLetterFromSwitchboard = letterVectorA;
-//   }
-//   Serial.println("outletterFromSwitchboard: "+String(outLetterFromSwitchboard));
-
-//   return outLetterFromSwitchboard;
-
-// }
 
 void printVectors(){
   Serial.println("A vector");
@@ -1266,9 +1192,10 @@ void readSwitchboard(){
 
 void setupTurnMotor(int previousPosition, int currentPosition, int motor, int GPIOAB, int writeAddres, int cs){
   int difference = previousPosition-currentPosition;
-  Serial.println("motor "+String(motor)+" previous "+String(previousPosition)+" currentPosition "+String(currentPosition)+" stepps "+String(difference));
-  turnMotor(difference,motor,GPIOAB,writeAddres,cs);
-
+  if (difference<0){
+    Serial.println("motor "+String(motor)+" previous "+String(previousPosition)+" currentPosition "+String(currentPosition)+" stepps "+String(difference));
+    turnMotor(difference,motor,GPIOAB,writeAddres,cs);
+  }
 }
 
 
@@ -1302,20 +1229,27 @@ void setup() {
 
 
   SPI.begin();
-
-  
+    
 }
 ///////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////MAIN//////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////
 
 void loop() {
+rotorLeft.currentPosition = 1;
+rotorLeft.previousPositionSetup = 1;
+rotorMid.currentPosition = 1;
+rotorMid.previousPositionSetup = 1;
+rotorRight.currentPosition = 1;
+rotorRight.previousPositionSetup = 1;
+
 WriteSpi(STEPPERWRITEADDR,IODIRA,0b00000000,STEPPER_CS);
 WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
 WriteSpi(SWITCHBOARD2WRITEADDR,IODIRB,0b00000000,SWITCHBOARD2_CS);
 
 // wifiConnect();
 stepSizeLetter = 5;
+
 //on startup turn all rotors to A
 turnMotor(8000,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);//8000 is just a number bigger than a full turn so the limiter switch will be pushed
 // turnMotor2();
@@ -1378,6 +1312,7 @@ WriteSpi(STEPPERWRITEADDR,IODIRB,0b11110000,STEPPER_CS);
 Serial.println("current position rotor left"+String(rotorLeft.currentPosition));
 Serial.println("current position rotor mid"+String(rotorMid.currentPosition));
 Serial.println("current position rotor right"+String(rotorRight.currentPosition));
+
 
 setupTurnMotor(rotorLeft.previousPositionSetup,rotorLeft.currentPosition,1,GPIOB,STEPPERWRITEADDR,STEPPER_CS);
 setupTurnMotor(rotorMid.previousPositionSetup,rotorMid.currentPosition,2,GPIOB,SWITCHBOARD2WRITEADDR,SWITCHBOARD2_CS);
@@ -1451,7 +1386,7 @@ Serial.println("endedSwitchboard");
 
 
 
-String settings = String(rotorLeft.rotorChoice)+","+String(rotorLeft.currentPosition)+";"+String(rotorMid.rotorChoice)+","+String(rotorMid.currentPosition)+";"+String(rotorRight.rotorChoice)+","+String(rotorRight.currentPosition)+"end";
+
 
 ledsMoving();
   
@@ -1484,14 +1419,16 @@ ledsMoving();
   pressedStopButton = false;
   Serial.println("stopped reading keyboard");
 
-
+  String settings = "rotor:"+String(rotorLeft.rotorChoice)+",position:"+String(rotorLeft.currentPosition)+";rotor:"+String(rotorMid.rotorChoice)+",position:"+String(rotorMid.currentPosition)+";rotor:"+String(rotorRight.rotorChoice)+",position:"+String(rotorRight.currentPosition)+";message:"+textToPost;
 ////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////SEND MESSAGE//////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
   vTaskDelay(1000/portTICK_PERIOD_MS);
+  Serial.println("wifi connecting");
   wifiConnect();
+  Serial.println("wifi done");
   
-  mqttMessage(settings);
+  sendWhatsapp(settings);
   postMessage();
 
   FastLED.clear();
